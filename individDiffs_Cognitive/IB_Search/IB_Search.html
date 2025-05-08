@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="English">
+<head>
+  <title>Compatibility Study</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-html-button-response.js"></script>
+  <script src="jspsych/jspsych-survey-text.js"></script>
+  <script src="jspsych/jspsych-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+</body>
+<script>
+  //----- CUSTOMIZABLE VARIABLES -----------------------------------------
+  StudyName = "IB_Search"
+  nPracticeTrials = 3         // number of practice trials (default: 3)
+  nTrials = 3                 // number of normal trials (default: 5)
+  stimulus_duration = 1000     // how long the stimulus lasts in ms
+
+  const baseFontSize = 32;  // Increased base font size
+  const containerSize = baseFontSize * 12;
+  const itemSize = baseFontSize * 3.5;
+  const radius = containerSize * 0.35;
+  const center = containerSize / 2;
+  const itemOffset = itemSize / 2;
+  const ibSvgOptions = [
+    // Plus (+)
+    `<svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 6v9H4v4h9v9h4v-9h9v-4h-9V6z" fill="rgba(0, 0, 255, 0.5)"/>
+    </svg>`,
+
+    // Z shape
+    `<svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 8h20v4L14 24h12v4H6v-4l12-12H6z" fill="rgba(0, 0, 255, 0.5)"/>
+    </svg>`,
+
+    // L shape
+    `<svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 4v20h16v-4H12V4z" fill="rgba(0, 0, 255, 0.5)"/>
+    </svg>`,
+
+    // T shape
+    `<svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 4v4h10v20h4V8h10V4z" fill="rgba(0, 0, 255, 0.5)"/>
+    </svg>`
+  ];
+
+  const ibChoiceLabels = ['+', 'Z', 'L', 'T'];
+
+  //----------------------------------------------------------------------
+  let timeline = [];
+  let numbers = [];
+  //let symbols = ['@', '#', '$', '%', '&', '?', '=', '#'];  // didn't include symbols that looked like dots or lines
+  let symbols = ['$', '$', '$', '$', '$', '$', '$', '$'];
+  let ibOptions = ibSvgOptions;
+  let ibIndex = Math.floor(Math.random() * ibOptions.length);  // Store the index
+  let ibLetter = ibOptions[ibIndex];  // Use index to get SVG
+  let ibLabel = ibChoiceLabels[ibIndex];  // Store the corresponding label
+
+  let lastNumber
+  let responseSequence = [];
+  let practiceTargetIdentity = [];
+  let mainTargetIdentity = [];
+  let criticalTargetIdentity = [];
+  let dividedTargetIdentity = [];
+  let practiceResponseSequence = [];
+  let mainResponseSequence = [];
+  let criticalResponseSequence = [];
+  let dividedResponseSequence = [];
+  let practiceResponseTime = [];
+  let mainResponseTime = [];
+  let criticalResponseTime = [];
+  let dividedResponseTime = [];
+  let itemsStrings = [];
+  let correctResponsesCount = 0;
+  let normalTrialCount = 0;
+  let noticeSequence = [];
+  let choiceSequence = [];
+  let participantData = {};
+
+  //----- FUNCTIONS & DATA SAVING------------------------------------------------------
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  function formatDate(date) {
+    // Get the date string in the CST timezone
+    const options = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // Format the date using Intl.DateTimeFormat
+    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+    const [datePart, timePart] = cstDateString.split(', ');
+    const [month, day, year] = datePart.split('/');
+
+    return `${year}/${month}/${day} ${timePart}`;
+  }
+
+  let Start = formatDate(new Date());
+  let End;
+  console.log(Start);
+
+  let datalog = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: "",
+    trial_duration: 100,
+    on_finish: function (data) {
+      let trialData = jsPsych.data.get();
+      // Accumulate data for each trial into the participantData object
+      trialData.trials.forEach(row => {
+        for (let key in row) {
+          if (row.hasOwnProperty(key)) {
+            // Use the key as the column name and assign the value from the row
+            participantData[key] = row[key];
+          }
+        }
+      });
+
+      console.log("Data being sent to server:", JSON.stringify(participantData, null, 2)); // Pretty print JSON
+      let xhr = new XMLHttpRequest();
+      xhr.open('POST', 'data.php', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        if (xhr.status == 200) {
+          let response = JSON.parse(xhr.responseText);
+          console.log(response.success);
+        }
+      };
+      xhr.send(JSON.stringify(participantData));
+    }
+  }
+
+  function getInfo(inputString) {
+    const symbolMatch = inputString.match(/>(.)</g);
+    const itemsString = symbolMatch ? symbolMatch.map(match => match.match(/>(.)</)[1]).join('') : null;
+    return {
+      itemsString: itemsString
+    };
+  }
+
+  function formatData(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        participantData[questionName] = responses[questionName];
+      }
+    }
+    //data.studyName = StudyName;
+    data.subject_code = subjectCode;
+    data.IB_Search_start = Start;
+    data.IB_Search_duration = (jsPsych.getTotalTime() / 1000).toFixed(2);
+    data.IB_Search_nTrials = 3;
+    data.IB_Search_distractorComposition= "3 $ and 4 %" ;
+    data.IB_Search_distractorSize = 32;
+    data.IB_Search_targetSize = 36;
+    data.IB_stimulus_duration = "1000ms";
+    data.IB_Search_unexpectedObject = ibLabel;
+    data.IB_Search_ib_choiceOptions = ibChoiceLabels;
+    data.IB_Search_items_location = "1: [220, 110], 2: [188, 188], 3: [110, 220], 4: [32, 188], 5: [0, 110], 6: [32, 32], 7: [110, 0], 8: [188, 32]";
+
+    // Calculate completed regular trials (excluding practice and critical)
+    let completedRegularTrials = Math.max(0, Math.min(normalTrialCount - nPracticeTrials, nTrials));
+
+    // Only calculate accuracy for regular trials if we have any completed
+    if (completedRegularTrials > 0) {
+      // Include both immediate and reminder responses in accuracy calculation
+      data.IB_Search_accuracy_preCritical = ((correctResponsesCount / completedRegularTrials) * 100).toFixed(2);
+    } else {
+      data.IB_Search_accuracy_preCritical = "0.00";
+    }
+  }
+
+
+  //----------------------------------------------------------------------
+  let instructions = {
+    type: jsPsychInstructions,
+    pages: function () {
+      let pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br><br> You will see a circle made up of several characters and one number. <br><br> Press <b>e</b> if the number is even. <br> Press <b>o</b> if the number is odd. <br><br> You will first do 3 practice trials and receive feedback on whether your answer was correct or incorrect. <br><br> Press &#39;Space&#39; to begin the practice trials. <br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    key_forward: ' ',
+  };
+
+  let instructions2 = {
+    type: jsPsychInstructions,
+    pages: function () {
+      let pageOne = '<div style="font-size:20px;">We will now begin the regular trials. You will no longer receive feedback on your responses. <br><br><br> Press &#39;Space&#39; to begin the experiment.<br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    key_forward: ' ',
+  };
+
+  let dividAttention_instruction = {
+    type: jsPsychInstructions,
+    pages: function () {
+      let pageOne = `
+      <div style="font-size:20px; text-align:center; max-width: 600px; margin: 0 auto;">
+        <div style="margin-bottom: 25px;">
+          Continue to find the number among characters and:
+        </div>
+        <div style="background-color: #f0f0f0; padding: 20px; border-radius: 8px; margin: 25px 0; max-width: 550px;">
+          <span style="color: #d63031; font-weight: bold;">NEW REQUIREMENT:</span><br>
+          This time, you should <b>also look</b> for the presence of an additional object.
+        </div>
+        <div style="margin-top: 30px;">
+          Press <b>Space</b> to continue.
+        </div>
+      </div>`
+      return [pageOne]
+    },
+    allow_backward: false,
+    key_forward: ' ',
+  };
+
+  let fixation = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      return `<div class="circle-grid">*</div></div>`;
+    },
+    trial_duration: 1000,  // duration of fixation point (ms)
+    post_trial_gap: 300   // duration of delay before array (ms)
+  };
+
+  let confirmation = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: "</p>Press <b>space</b> to start the next trial.</p>",
+    choices: " ",
+    response_ends_trial: true
+  };
+
+  let reminderMessage = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: '<div style="font-size:20px;">Press <b>E</b> for even and <b>O</b> for odd</div>',
+    choices: ['e', 'o'],
+    trial_duration: null,
+    data: function() {
+      let lastTrial = jsPsych.data.get().last(1).values()[0];
+      return {
+        correct_response: lastTrial.correct_response,
+        is_reminder: true,
+        trial_number: lastTrial.trial_number,
+        is_critical: lastTrial.is_critical
+      };
+    },
+    on_finish: function(data) {
+      if (data.response !== null) {
+        let lastMainTrial = jsPsych.data.get().last(2).values()[0];
+
+        if (lastMainTrial.is_critical) {
+          if (noticeSequence.length === 0) {
+            // First critical trial
+            if (criticalResponseSequence.length === 0) {
+              criticalResponseSequence.push(data.response);
+            } else {
+              criticalResponseSequence[criticalResponseSequence.length - 1] = data.response;
+            }
+          } else {
+            // Second critical trial (divided attention)
+            if (dividedResponseSequence.length === 0) {
+              dividedResponseSequence.push(data.response);
+            } else {
+              dividedResponseSequence[dividedResponseSequence.length - 1] = data.response;
+            }
+          }
+        } else if (normalTrialCount <= nPracticeTrials) {
+          practiceResponseSequence[practiceResponseSequence.length - 1] = data.response;
+        } else {
+          mainResponseSequence[mainResponseSequence.length - 1] = data.response;
+        }
+
+        // Only count accuracy for non-critical trials within the normal trial range
+        if (!lastMainTrial.is_critical &&
+                normalTrialCount > nPracticeTrials &&
+                normalTrialCount <= (nPracticeTrials + nTrials)) {
+          data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+          if (data.correct) {
+            correctResponsesCount++;
+          }
+        }
+
+        // Update data with the modified response sequences
+        jsPsych.data.get().addToLast({
+          IB_Search_practice_targetIdentity: practiceTargetIdentity,
+          IB_Search_main_targetIdentity: mainTargetIdentity,
+          IB_Search_practice_response: practiceResponseSequence,
+          IB_Search_main_response: mainResponseSequence,
+          IB_Search_practice_responseTime: practiceResponseTime,
+          IB_Search_main_responseTime: mainResponseTime,
+          IB_Search_critical_targetIdentity: criticalTargetIdentity,
+          IB_Search_divided_targetIdentity: dividedTargetIdentity,
+          IB_Search_critical_response: criticalResponseSequence,
+          IB_Search_divided_response: dividedResponseSequence,
+          IB_Search_critical_responseTime: criticalResponseTime,
+          IB_Search_divided_responseTime: dividedResponseTime
+        });
+      }
+    }
+  };
+
+
+  let alphabet_dots = {  //main trials
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      let gridItems = [];
+      let randomIndex = Math.floor(Math.random() * 8); // Position for the number
+      let randomNumber = Math.floor(Math.random() * 8) + 2;
+
+      // Get 3 random symbols
+      let shuffledSymbols = jsPsych.randomization.repeat(symbols, 3).slice(0, 3);
+      let displayItems = [...shuffledSymbols];
+      for (let i = 0; i < 4; i++) {
+        displayItems.push('%');
+      }
+      //let displayItems = Array(7).fill('%');
+
+      // Shuffle the combined array to randomize positions
+      let randomizedItems = jsPsych.randomization.repeat(displayItems, 1);
+      numbers.push(randomNumber);
+
+      for (let i = 0; i < 8; i++) {
+        let angle = (2 * Math.PI / 8) * i;
+        let x = radius * Math.cos(angle);
+        let y = radius * Math.sin(angle);
+
+        if (i === randomIndex) {
+          let posX = Math.round(x + center - itemOffset);
+          let posY = Math.round(y + center - itemOffset);
+          gridItems.push(`<div class="circle-grid-center" style="left: ${posX}px; top: ${posY}px;">${randomNumber}</div>`);
+        } else {
+          let posX = Math.round(x + center - itemOffset);
+          let posY = Math.round(y + center - itemOffset);
+          gridItems.push(`<div class="circle-grid-center" style="left: ${posX}px; top: ${posY}px;">${randomizedItems[i > randomIndex ? i - 1 : i]}</div>`);
+        }
+      }
+
+      return `<div>
+                <div class="circle-grid">${gridItems.join('')}</div>
+              </div>`;
+    },
+    stimulus_duration: stimulus_duration,
+    response_ends_trial: false,
+    trial_duration: stimulus_duration + 2000, // Add 2 seconds after stimulus disappears
+    choices: ['e', 'o'],
+    data: function () {
+      lastNumber = numbers[numbers.length - 1];
+      let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+      //console.log('Main Trial:', {number: lastNumber, correctResponse});
+      return {
+        correct_response: correctResponse,
+        is_main_trial: true,
+        is_critical: false,
+        displayed_number: lastNumber
+      };
+    },
+    on_finish: function (data) {
+      data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+
+      if (data.is_main_trial && !data.is_critical) {
+        normalTrialCount++;
+
+        if (normalTrialCount <= nPracticeTrials) {
+          practiceTargetIdentity.push(lastNumber);
+          practiceResponseSequence.push(data.response || 'NA');
+          practiceResponseTime.push(data.rt || 'NA');
+        } else if (normalTrialCount <= (nPracticeTrials + nTrials)) {
+          mainTargetIdentity.push(lastNumber);
+          mainResponseSequence.push(data.response || 'NA');
+          mainResponseTime.push(data.rt || 'NA');
+        }
+
+        if (normalTrialCount > nPracticeTrials &&
+                normalTrialCount <= (nPracticeTrials + nTrials)) {
+          if (data.response !== null && data.correct) {
+            correctResponsesCount++;
+          }
+        }
+      }
+
+      itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+      formatData(data);
+      numbers = [];
+
+      jsPsych.data.get().addToLast({
+        IB_Search_practice_targetIdentity: practiceTargetIdentity,
+        IB_Search_main_targetIdentity: mainTargetIdentity,
+        IB_Search_practice_response: practiceResponseSequence,
+        IB_Search_main_response: mainResponseSequence,
+        IB_Search_practice_responseTime: practiceResponseTime,
+        IB_Search_main_responseTime: mainResponseTime,
+        IB_Search_items_string: itemsStrings
+      })
+    }
+  };
+
+  let criticalTrial_high_load = {      //critical trails
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      let gridItems = [];
+      let randomIndex = Math.floor(Math.random() * 8);
+      let randomNumber = Math.floor(Math.random() * 8) + 2;
+
+      //Get 3 random symbols
+      let shuffledSymbols = jsPsych.randomization.repeat(symbols, 3).slice(0, 3);
+
+      let displayItems = [...shuffledSymbols];
+      for (let i = 0; i < 4; i++) {
+        displayItems.push('%');
+      }
+      //let displayItems = Array(7).fill('%');
+
+      // Shuffle the combined array to randomize positions
+      let randomizedItems = jsPsych.randomization.repeat(displayItems, 1);
+
+      numbers.push(randomNumber);
+
+      for (let i = 0; i < 8; i++) {
+        let angle = (2 * Math.PI / 8) * i;
+        let x = radius * Math.cos(angle);
+        let y = radius * Math.sin(angle);
+
+        if (i === randomIndex) {
+          let posX = Math.round(x + center - itemOffset);
+          let posY = Math.round(y + center - itemOffset);
+          gridItems.push(`<div class="circle-grid-center" style="left: ${posX}px; top: ${posY}px;">${randomNumber}</div>`);
+        } else {
+          let posX = Math.round(x + center - itemOffset);
+          let posY = Math.round(y + center - itemOffset);
+          gridItems.push(`<div class="circle-grid-center" style="left: ${posX}px; top: ${posY}px;">${randomizedItems[i > randomIndex ? i - 1 : i]}</div>`);
+        }
+      }
+
+      return `<div class="circle-grid">${gridItems.join('')}
+            <div class="ib" style="width: 32px; height: 32px;">
+                ${ibLetter}
+            </div>
+        </div>`;
+    },
+
+    stimulus_duration: stimulus_duration,
+    response_ends_trial: false,
+    trial_duration: stimulus_duration + 2000, // Add 2 seconds after stimulus disappears
+    choices: ['e', 'o'],
+    data: function () {
+      lastNumber = numbers[numbers.length - 1];
+      let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+      return {
+        correct_response: correctResponse,
+        is_critical: true,
+        trial_number: normalTrialCount
+      };
+    },
+    on_finish: function (data) {
+      data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+
+      // Track critical trials based on which critical trial it is
+      if (noticeSequence.length === 0) {
+        // This is the first critical trial (before divided attention instruction)
+        criticalTargetIdentity.push(lastNumber);
+        criticalResponseSequence.push(data.response || 'NA');
+        criticalResponseTime.push(data.rt || 'NA');
+      } else {
+        // This is the second critical trial (after divided attention instruction)
+        dividedTargetIdentity.push(lastNumber);
+        dividedResponseSequence.push(data.response || 'NA');
+        dividedResponseTime.push(data.rt || 'NA');
+      }
+
+      itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+
+      jsPsych.data.get().addToLast({
+        IB_Search_critical_targetIdentity: criticalTargetIdentity,
+        IB_Search_divided_targetIdentity: dividedTargetIdentity,
+        IB_Search_critical_response: criticalResponseSequence,
+        IB_Search_divided_response: dividedResponseSequence,
+        IB_Search_critical_responseTime: criticalResponseTime,
+        IB_Search_divided_responseTime: dividedResponseTime,
+        IB_Search_items_string: itemsStrings,
+        trial_number: normalTrialCount,
+        correct_count: correctResponsesCount
+      })
+      numbers = [];
+    }
+  };
+
+  let feedback = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      // Get the last trial that was either the main trial or a reminder
+      let lastTrial = jsPsych.data.get().filter(trial =>
+              trial.response !== null &&
+              (trial.is_main_trial === true || trial.is_reminder === true)
+      ).last(1).values()[0];
+
+      // If it's a reminder response, check if the response matches what would be correct for the number
+      if (lastTrial && lastTrial.is_reminder) {
+        let isEven = lastTrial.correct_response === 'e';
+        let isCorrect = (isEven && lastTrial.response === 'e') || (!isEven && lastTrial.response === 'o');
+
+        if (isCorrect) {
+          return '<div style="font-size:35px; color:rgb(0 220 0)"><b>Correct<br><br><br><br></div>';
+        }
+      }
+      // For main trial responses, use the existing correct property
+      else if (lastTrial && lastTrial.correct) {
+        return '<div style="font-size:35px; color:rgb(0 220 0)"><b>Correct<br><br><br><br></div>';
+      }
+
+      return '<div style="font-size:35px; color:rgb(240 0 0)"><b>Incorrect<br><br><br><br></div>';
+    },
+    choices: "NO_KEYS",
+    trial_duration: 1000,
+  };
+
+
+  //------------------QUESTIONS-------------------------
+  let ib_question = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: "<p>Did you notice anything extra during the last search trial that wasn't there in the previous trials?</p>",
+    choices: ['No', 'Yes'],
+    on_finish: function (data) {
+      noticeSequence.push(data.response);
+      jsPsych.data.get().addToLast({
+        IB_Search_notice_critical: noticeSequence[0]
+      })
+    }
+  };
+
+  let ib_question_divid = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: "<p>Did you notice an additional object on that trial?</p>",
+    choices: ['No', 'Yes'],
+    on_finish: function (data) {
+      noticeSequence.push(data.response);
+      jsPsych.data.get().addToLast({
+        IB_Search_notice_divided: noticeSequence[1]
+      })
+    }
+  };
+
+  let ib_question2 = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: "<p>There actually was an extra object. <br><br> If you saw it, please select the object you saw. If you didn't see it, please guess.</p>",
+    choices: function() {
+      // Create array of objects containing both SVG and label
+      let choiceOptions = ibSvgOptions.map((svg, index) => ({
+        svg: svg,
+        label: ibChoiceLabels[index]
+      }));
+      // Shuffle the array
+      let shuffledOptions = jsPsych.randomization.shuffle(choiceOptions);
+      // Store the shuffled labels for reference in on_finish
+      this.shuffledLabels = shuffledOptions.map(option => option.label);
+      // Return just the SVGs for the choices
+      return shuffledOptions.map(option => option.svg);
+    },
+
+    button_html: `<div class="jspsych-btn" style="width: 100px; height: 100px; display: flex; align-items: center; justify-content: center; background: white;">%choice%</div>`,
+    on_finish: function(data) {
+      // Find the index of the selected SVG in ibSvgOptions
+      const selectedIndex = ibSvgOptions.findIndex(svg => svg === data.response);
+      const selectedLabel = ibChoiceLabels[selectedIndex];
+      choiceSequence.push(selectedLabel);
+
+      jsPsych.data.get().addToLast({
+        IB_Search_choice_critical: choiceSequence[0] || null,
+        IB_Search_choice_divided: choiceSequence[1] || null
+      });
+    }
+  };
+
+  let devoteAttention_critical = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: "<p>Did you <b>expect</b> an additional object to appear? <p><p>That is, were you <b>deliberately looking</b> for an additional object while also searching for a number?</p>",
+    choices: ['No', 'Yes'],
+    on_finish: function(data) {
+      participantData.IB_Search_devoteAttention_critical = data.response;  // use the response directly
+      formatData(data);
+    }
+  };
+
+  let devoteAttention_divided = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: "<p>Did you deliberately look for an additional object while also searching for a number?</p>",
+    choices: ['No', 'Yes'],
+    on_finish: function(data) {
+      participantData.IB_Search_devoteAttention_divided = data.response;  // use the response directly
+      End = formatDate(new Date());
+      participantData.IB_Search_end = End;
+      formatData(data);
+    }
+  };
+
+  let exp_finish = {
+    type: jsPsychInstructions,
+    pages: function () {
+      let pageOne = '<p><br><br> Thank you for participating in the experiment! <br><br><br> Click &#39;Done&#39; to finish the experiment. <br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: 'Done',
+    show_clickable_nav: true
+  }
+
+  let mainTrialWithReminder = {
+    timeline: [
+      alphabet_dots,
+      {
+        timeline: [reminderMessage],
+        conditional_function: function() {
+          let lastTrial = jsPsych.data.get().last(1).values()[0];
+          return lastTrial.response === null;
+        }
+      }
+    ]
+  };
+
+
+  //--------------TIMELINE VARIABLES-----------------
+  let high_load_practice = {
+    timeline: [fixation, mainTrialWithReminder, feedback],
+    repetitions: nPracticeTrials
+  };
+
+  let high_load_normal = {
+    timeline: [fixation, mainTrialWithReminder],
+    repetitions: nTrials
+  };
+
+  let high_load_critical = {
+    timeline: [fixation, {
+      timeline: [criticalTrial_high_load, {
+        timeline: [reminderMessage],
+        conditional_function: function() {
+          let lastTrial = jsPsych.data.get().last(1).values()[0];
+          return lastTrial.response === null;
+        }
+      }]
+    }],
+    repetitions: 1
+  };
+
+  let high_load = {
+    timeline: [high_load_practice, instructions2, high_load_normal, high_load_critical, ib_question, ib_question2, devoteAttention_critical, dividAttention_instruction, high_load_critical, ib_question_divid, ib_question2, devoteAttention_divided],
+    repetitions: 1
+  };
+
+  let jsPsych = initJsPsych({
+    on_finish() {
+      //window.location.href = 'http://localhost/individDiffs_Cognitive/prolific/task_index_local.html?subject_code=' + subjectCode;
+      window.location.href = 'http://simonslab.com/mot/individDiffs_Cognitive/prolific/task_index.html?subject_code=' + subjectCode;
+    }
+  });
+
+  timeline.push(instructions, high_load, datalog, exp_finish);
+  jsPsych.run(timeline);
+
+
+</script>
+</html>
+

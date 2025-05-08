@@ -1,0 +1,157 @@
+<html>
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-plugin-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  let duration;
+  let TimeStart = new Date();
+  console.log(TimeStart)
+
+  let participantResponses = {};
+  // Function to handle the end of each survey block
+  function handleSurveyFinish(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        participantResponses[questionName] = responses[questionName];
+      }
+    }
+    participantResponses['ASRS_nItemsTotal'] = 9;
+    participantResponses['ASRS_duration'] = duration;
+    participantResponses['subject_code'] = subjectCode;
+  }
+
+  let instruction = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="font-size:20px;">In this task, you will answer some questions about yourself. <br><br>Please respond to each question by selecting the option that best describes you. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  let ADHD = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "How often do you make careless mistakes when you have to work on a boring or difficult project?",
+        name: 'ASRS_01',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you have difficulty keeping your attention when you are doing boring or repetitive work?",
+        name: 'ASRS_02',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you have difficulty concentrating on what people say to you, even when they are speaking to you directly?",
+        name: 'ASRS_03',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you have trouble wrapping up the fine details of a project, once the challenging parts have been done?",
+        name: 'ASRS_04',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you have difficulty getting things in order when you have to do a task that requires organization?",
+        name: 'ASRS_05',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "When you have a task that requires a lot of thought, how often do you avoid or delay getting started?",
+        name: 'ASRS_06',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you misplace or have difficulty finding things at home or at work?",
+        name: 'ASRS_07',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often are you distracted by activity or noise around you?",
+        name: 'ASRS_08',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+      {
+        prompt: "How often do you have problems remembering appointments or obligations?",
+        name: 'ASRS_09',
+        options: ['never', 'rarely', 'sometimes', 'often', 'very often'],
+        required: true
+      },
+    ],
+    on_finish: function (data) {
+      let TimeEnd = new Date();
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      handleSurveyFinish(data);
+    }
+  }
+
+  let end = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">Press "Continue" to proceed to the next task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Continue",
+    show_clickable_nav: true
+  }
+
+  function sendToServer(data, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', 'data.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) { // Complete
+        console.log("Save complete, status:", xhr.status);
+        if (callback) callback();
+      }
+    };
+    xhr.send(JSON.stringify(data));
+  }
+
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  let jsPsych = initJsPsych({
+    on_finish() {
+      sendToServer(participantResponses, function() {
+        // Only redirect after the XHR request completes
+        //window.location.href = 'http://localhost/individDiffs_Personality/prolific/task_index_local.html?subject_code=' + subjectCode;
+        window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
+      });
+    }
+  });
+
+  timeline.push(instruction, ADHD, end);
+  jsPsych.run(timeline);
+
+</script>
+</html>

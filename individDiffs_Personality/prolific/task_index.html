@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+</head>
+<body>
+<script>
+    // First define the task name mapping and original links
+    const taskNameMap = {
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Transient/IB_Transient.html': 'IB Transient',
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Search/IB_Search.html': 'IB Search',
+        'http://simonslab.com/mot/individDiffs_Personality/ASRS/ASRS.html': 'ASRS',
+        'http://simonslab.com/mot/individDiffs_Personality/BF2/BF2.html': 'BF2',
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Sustained/IB_Sustained.html': 'IB Sustained',
+        'http://simonslab.com/mot/individDiffs_Personality/FFOCI/FFOCI.html': 'FFOCI',
+        'http://simonslab.com/mot/individDiffs_Personality/MPQ/MPQ.html': 'MPQ',
+        'http://simonslab.com/mot/individDiffs_Personality/demographicsPer/demographicsPer.html': 'Demographic'
+    };
+
+    const originalLinks = [
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Transient/IB_Transient.html',
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Search/IB_Search.html',
+        'http://simonslab.com/mot/individDiffs_Personality/ASRS/ASRS.html',
+        'http://simonslab.com/mot/individDiffs_Personality/BF2/BF2.html',
+        'http://simonslab.com/mot/individDiffs_Personality/IB_Sustained/IB_Sustained.html',
+        'http://simonslab.com/mot/individDiffs_Personality/FFOCI/FFOCI.html',
+        'http://simonslab.com/mot/individDiffs_Personality/MPQ/MPQ.html',
+        'http://simonslab.com/mot/individDiffs_Personality/demographicsPer/demographicsPer.html'
+    ];
+
+    function isIBTask(link) {
+        return link.includes('IB_');
+    }
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function randomizeLinks(array) {
+        // Separate tasks by type
+        const ibTasks = array.filter(link => isIBTask(link) && !link.includes('demographic'));
+        const nonIBTasks = array.filter(link => !isIBTask(link) && !link.includes('demographic'));
+        const demographic = array.find(link => link.includes('demographic'));
+
+        // Create valid sequence
+        let result = [];
+        let remainingIB = [...ibTasks];
+        let remainingNonIB = [...nonIBTasks];
+
+        // Start with a non-IB task
+        if (remainingNonIB.length > 0) {
+            const randomIndex = Math.floor(Math.random() * remainingNonIB.length);
+            result.push(remainingNonIB[randomIndex]);
+            remainingNonIB.splice(randomIndex, 1);
+        }
+
+        // Keep adding tasks, ensuring no two IB tasks are adjacent
+        while (remainingIB.length > 0 || remainingNonIB.length > 0) {
+            if (isIBTask(result[result.length - 1])) {
+                // Last task was IB, must add non-IB
+                if (remainingNonIB.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * remainingNonIB.length);
+                    result.push(remainingNonIB[randomIndex]);
+                    remainingNonIB.splice(randomIndex, 1);
+                }
+            } else {
+                // Last task was non-IB, can add either type but prefer IB if available
+                if (remainingIB.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * remainingIB.length);
+                    result.push(remainingIB[randomIndex]);
+                    remainingIB.splice(randomIndex, 1);
+                } else if (remainingNonIB.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * remainingNonIB.length);
+                    result.push(remainingNonIB[randomIndex]);
+                    remainingNonIB.splice(randomIndex, 1);
+                }
+            }
+        }
+
+        // Add demographic at the end
+        result.push(demographic);
+
+        return result;
+    }
+
+    // Logging helper
+    function logError(message, data) {
+        const logs = JSON.parse(localStorage.getItem('taskSequenceLogs') || '[]');
+        logs.push({
+            timestamp: new Date().toISOString(),
+            message: message,
+            data: data
+        });
+        localStorage.setItem('taskSequenceLogs', JSON.stringify(logs));
+    }
+
+    // Initialize sequence
+    const urlParams = new URLSearchParams(window.location.search);
+    const subject_code = urlParams.get('subject_code');
+
+    let links;
+    try {
+        links = JSON.parse(sessionStorage.getItem('links'));
+        const storedIndex = parseInt(sessionStorage.getItem('currentLinkIndex'));
+
+        if (!links || isNaN(storedIndex)) {
+            links = randomizeLinks([...originalLinks]);
+            sessionStorage.setItem('links', JSON.stringify(links));
+            sessionStorage.setItem('currentLinkIndex', '0');
+            logError('Initialized new sequence', { links });
+        } else {
+            logError('Loaded existing sequence', { links, currentIndex: storedIndex });
+        }
+    } catch (error) {
+        logError('Error in sequence initialization', { error: error.message });
+        links = randomizeLinks([...originalLinks]);
+        sessionStorage.setItem('links', JSON.stringify(links));
+        sessionStorage.setItem('currentLinkIndex', '0');
+    }
+
+    function sendLinksSequenceToDatabase(linksSequence, subject_code) {
+        if (!subject_code) {
+            logError('Missing subject_code in database send');
+            return;
+        }
+
+        const taskNames = linksSequence.map(link => taskNameMap[link]);
+
+        fetch('recordLinksSequence.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                taskSequence: taskNames,
+                subject_code: subject_code
+            })
+        }).catch(error => {
+            logError('Error sending to database', { error: error.message });
+        });
+    }
+
+    function goToNextLink() {
+        try {
+            let currentLinkIndex = parseInt(sessionStorage.getItem('currentLinkIndex') || '0');
+
+            if (isNaN(currentLinkIndex)) {
+                logError('Invalid currentLinkIndex, resetting to 0', { currentLinkIndex });
+                currentLinkIndex = 0;
+            }
+
+            if (currentLinkIndex < links.length) {
+                sessionStorage.setItem('currentLinkIndex', (currentLinkIndex + 1).toString());
+
+                const baseLink = links[currentLinkIndex];
+                const separator = baseLink.includes('?') ? '&' : '?';
+                const nextLink = `${baseLink}${separator}subject_code=${encodeURIComponent(subject_code)}`;
+
+                logError('Navigating to next link', {
+                    currentIndex: currentLinkIndex,
+                    nextLink,
+                    subject_code
+                });
+
+                sendLinksSequenceToDatabase(links, subject_code);
+
+                setTimeout(() => {
+                    window.location.href = nextLink;
+                }, 100);
+            } else {
+                logError('Sequence completed', { currentLinkIndex, totalLinks: links.length });
+            }
+        } catch (error) {
+            logError('Error in goToNextLink', { error: error.message });
+        }
+    }
+
+    // Start sequence
+    goToNextLink();
+</script>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<html>
+<head>
+  <title>WM operation span task</title>
+  <script src="jspsych-6.0.4/jspsych.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-html-button-operationspan.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-survey-text.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-fullscreen.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-operation-span-recall.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-survey-multi-choice.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <link href="jspsych-6.0.4/css/jspsych_operationspan.css" rel="stylesheet" type="text/css">
+</head>
+<body></body>
+<script>
+
+  //----- CUSTOMIZABLE VARIABLES -----------------------------------------
+  minSetSize = 2 // starting length of each trial (i.e., min number of letters in a trial); default: 2
+  maxSetSize = 5 // ending length of each trial (i.e., max number of letters in a trial); default: 5
+  repSet = 1 // number of times each set size should be repeated; default: 3
+  randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
+  file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
+  local = false // true to save the data file locally.
+  //----------------------------------------------------------------------
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  function formatDate(date) {
+    // Get the date string in the CST timezone
+    const options = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // Format the date using Intl.DateTimeFormat
+    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+    const [datePart, timePart] = cstDateString.split(', ');
+    const [month, day, year] = datePart.split('/');
+
+    return `${year}/${month}/${day} ${timePart}`;
+  }
+
+  let Start = formatDate(new Date());
+  let End;
+  let duration;
+  let TimeStart = new Date();
+  console.log(Start);
+
+  var possibleLetters = ["F","G","J","L","P","Q","R"]
+
+  var setSizes = []    // different set sizes
+  for (var i = minSetSize; i<= maxSetSize; i++){
+    for (var r = 1; r<= repSet; r++){
+      setSizes.push(i)
+    }
+  }
+
+  var nTrials = setSizes.length // number of trials
+
+  if (randomize){
+    setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)} // shuffle through the set sizes
+
+  var letterMemDemoArray = [3,4,5]  // set sizes of initial demo trials default: [3,4,5]
+  var fullDemoArray = [3,4]       // set sizes of full demo trials default: [3,4]
+  var nPracticeTrials = letterMemDemoArray.length
+  var nfullDemo = fullDemoArray.length
+
+  // Slice the first two elements of letterMemDemoArray
+  var slicedLetterMemDemoArray = letterMemDemoArray.slice(0, 3);
+  // Concatenate the arrays
+  setSizes = slicedLetterMemDemoArray.concat(fullDemoArray, setSizes);
+  console.log(setSizes)
+
+  var n = 0 //keeps track of number of trials gone by
+  var selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
+  var selection_id = 0 //keeps track of recall items within a test stack
+  var letterSelection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[letterSelection_id])
+  var letterSelection_id = 0 //keeps track of recall items within a test stack
+  var nMathAcc = 0 // feedback
+
+  var nLetters = 0;
+  var letterRotationAngle = [45, 60];
+  var rotationAngle = [0, 45, 90, 135, 180, 225, 270, 315];
+  var lengths = [40, 80];
+  var arrowLength = [];
+  var arrowAngle = [];
+  var arrowCodes = [];
+  var letterAcc
+
+  var instructions = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br><br>This task has two parts: <br>(1) memorizing arrows <br>(2) judging whether a letter is mirrored or not <br><br><br></div>'
+      pageTwo = '<div style="font-size:20px;">We will first practice the ARROW MEMORIZATION part of the task.<br><br>A sequence of arrows will appear on the screen one at a time (around 2 to 5). <br>Try to remember the set of arrows in the order they appeared.<br><br>After the sequence of arrows, you will see a screen showing 16 possible arrows. <br>Your task is to use your computer mouse to select each arrow that you saw <b>in the order you saw them</b>. <br><br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the arrows in the order that you saw them.<br> So if you forget one of the arrows, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
+      return [pageOne, pageTwo]//, pageThree]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var instructions2 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = `<div style="font-size:20px;">You will next practice the LETTER JUDGMENT part of the task. <br><br>A rotated letter will appear on the screen. Your task is to determine if the presented letter is normal or a mirrored version. <br><br>For example, if you saw the following letter:<br>F <br>you would click the <b>"Normal"</b> button; <br><br>If you saw the following letter:<br> <span style="display:inline-block; transform:scaleX(-1);">F</span><br>you would click the <b>"Mirrored"</b> button. <br><br>Press "Next" to start practicing letter judgment.<br><br></div>`
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var instructions3 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">You will now practice the two tasks together. <br><br>You will see an arrow that you should remember. <br>After the arrow disappears, you will see a letter and judge if the letter is normal or mirrored. <br><br>You will then see another arrow, followed by another letter. <br>And so on, until you have seen 2 to 5 arrows and solved 2 to 5 letter problems. <br><br>You will then see all 16 possible arrows and you will use your mouse to select the arrows you saw <b>in the correct order</b>, <br>just like you did during the practice trials. <br><br>It is important to work QUICKLY and ACCURATELY on the letter judgment task. Each letter will be presented for only 6 seconds. <br><br>Press "Next" for the practice problems for this combined task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+    on_finish: function(){
+      nMathAcc = 0
+    }
+  }
+
+  var instructions4 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">You have finished with the practice.<br><br>The main trials will be just like the ones you just practiced. <br><br>Press "Next" to begin.<br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var cogloadf = function (isFlipped){
+    var randomAngle = letterRotationAngle[Math.floor(Math.random() * 2)]
+    if (isFlipped === true) {
+      flipTransform = "scaleX(-1)"
+    } else {
+      flipTransform = ""
+    }
+    return `<div style="width: 150px; height: 150px; display: flex; justify-content: center; align-items: center; text-align: center; font-size:70px; transform: rotate(${randomAngle}deg) ${flipTransform}; transform-origin: center">`+letterSelection[letterSelection_id]+`</div>`
+  }
+
+  var cog_load_demo = {
+    type: 'letter rotation',
+    nPracticeTrials: function() { return 0; },
+    n: function() { return 0; },
+    setSizes: function() { return 0; },
+    nTrials: function() { return 0; },
+    equation_accuracy: function(){
+      var isFlipped = Math.random() >= 0.5;
+      letterAcc = isFlipped;
+      return letterAcc
+    },
+    stimulus: function(){
+      return cogloadf(letterAcc)
+    },
+    choices: ["Normal", "Mirrored"],
+    on_finish: function(){
+      letterSelection_id += 1
+      if (letterSelection_id >= possibleLetters.length) {
+        letterSelection_id = 0;
+      }
+      var acc = jsPsych.data.get().last(1).values()[0].accuracy;
+      console.log('acc:', jsPsych.data.get().last(1).values()[0].accuracy);
+      console.log('flipped?:', letterAcc);
+      console.log('letterSelection_id:', letterSelection_id)
+      console.log('letterSelection', letterSelection)
+      if (acc==1){
+        nMathAcc+=1
+      }
+    }
+  }
+
+  var cog_load = {
+    type: 'letter rotation',
+    nPracticeTrials: function() { return nPracticeTrials; },
+    n: function() { return n; },
+    setSizes: function() { return setSizes[n]; },
+    nTrials: function() { return nTrials; },
+    equation_accuracy: function(){
+      var isFlipped = Math.random() >= 0.5;
+      letterAcc = isFlipped;
+      return letterAcc
+    },
+    stimulus: function(){
+      return cogloadf(letterAcc)
+    },
+    trial_duration:6000,
+    choices: ["Normal", "Mirrored"],
+    on_finish: function(){
+      letterSelection_id += 1
+      if (letterSelection_id >= possibleLetters.length) {
+        letterSelection_id = 0;
+      }
+      var acc = jsPsych.data.get().last(1).values()[0].accuracy;
+      console.log('setSizes:', setSizes)
+      console.log('letterMirrored: ', letterAcc);
+      console.log('accuracy: ', acc);
+      console.log('letterSelection_id: ', letterSelection_id);
+      if (acc==1){
+        nMathAcc+=1
+      }
+    }
+  }
+
+
+  // Only modify the SVG creation while keeping everything else exactly as it was
+  let svgText = `
+<svg width="600" height="600" viewbox="86 80 250 250" style="border: none;">
+  <line id="arrow" x1="200" y1="200" stroke="black" stroke-width="2"/>
+  <polygon id="arrowhead" fill="black"/>
+</svg>
+`;
+
+  // Add the angle mapping to match recall.html
+  const angleMapping = {
+    180: 0,
+    135: 45,
+    90: 90,
+    45: 135,
+    0: 180,
+    315: 225,
+    270: 270,
+    225: 315,
+  };
+
+  function createArrowSVG(length, angle) {
+    let container = document.createElement('div');
+    container.innerHTML = svgText;
+
+    // Get references to the SVG elements
+    const arrowLine = container.querySelector("#arrow");
+    const arrowhead = container.querySelector("#arrowhead");
+
+    // Center point
+    const x1 = 200;
+    const y1 = 200;
+
+    // Get the actual presentation angle using the same mapping as recall.html
+    const presentationAngle = angle;
+
+    // Calculate end point using the same math as in recall.html
+    const angleRad = (presentationAngle - 90) * (Math.PI / 180);
+    const x2 = x1 + length * Math.cos(angleRad);
+    const y2 = y1 - length * Math.sin(angleRad);
+
+    // Headsize matches recall.html
+    const headSize = 6;
+
+    // Calculate adjusted end point for arrow line (just like in recall.html)
+    const angle_ = Math.atan2(y1 - y2, x1 - x2);
+    const adjustedX2 = x2 + headSize * Math.cos(angle_);
+    const adjustedY2 = y2 + headSize * Math.sin(angle_);
+
+    // Set arrow line coordinates
+    arrowLine.setAttribute("x1", x1);
+    arrowLine.setAttribute("y1", y1);
+    arrowLine.setAttribute("x2", adjustedX2);
+    arrowLine.setAttribute("y2", adjustedY2);
+
+    // Calculate arrowhead points (matching recall.html)
+    const headX1 = adjustedX2 + headSize * Math.cos(angle_ - Math.PI / 7);
+    const headY1 = adjustedY2 + headSize * Math.sin(angle_ - Math.PI / 7);
+    const headX2 = adjustedX2 + headSize * Math.cos(angle_ + Math.PI / 7);
+    const headY2 = adjustedY2 + headSize * Math.sin(angle_ + Math.PI / 7);
+
+    // Set arrowhead coordinates
+    arrowhead.setAttribute("points", `${x2},${y2} ${headX1},${headY1} ${headX2},${headY2}`);
+
+    let svg = container.querySelector("svg");
+    svg.style.display = 'block';
+
+    // Return the modified SVG as a string
+    return new XMLSerializer().serializeToString(svg);
+  }
+
+  var test_stimuli = {
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      let randomLength, randomAngle, mappedAngle, arrowCode;
+
+      while (true) {
+        randomLength = lengths[Math.floor(Math.random() * 2)];
+        randomAngle = rotationAngle[Math.floor(Math.random() * 8)];
+        mappedAngle = angleMapping[randomAngle];
+        arrowCode = `${mappedAngle}-${randomLength}`;
+
+        // Check if this exact arrow (angle + length combination) has been used
+        if (!arrowCodes.includes(arrowCode)) {
+          break;
+        }
+      }
+
+      var svgArrow = createArrowSVG(randomLength, randomAngle);
+      this.data = {
+        arrowLength: randomLength,
+        arrowAngle: mappedAngle
+      };
+      return `<div style="font-size:70px;">${svgArrow}</div>`;
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 1000,
+    on_finish: function(){
+      arrowLength.push(data.arrowLength);
+      arrowAngle.push(data.arrowAngle);
+      arrowCodes.push(`${data.arrowAngle}-${data.arrowLength}`);
+      console.log(arrowCodes);
+      selection_id += 1;
+    }
+  }
+
+  var end_test_stimuli = {
+    type: 'html-keyboard-response',
+    stimulus: " ",
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 0,
+    on_finish: function(){
+      console.log('selection_id:', selection_id);
+      //console.log('selection:', selection);
+      //if (selection_id>=selection.length){
+      if (selection_id>=setSizes[n]){
+        jsPsych.endCurrentTimeline()
+      }
+    }
+  }
+
+  var recall = {
+    on_start: function(){
+      console.log('setsizes: ', setSizes[n]);
+    },
+    type: 'arrow recall',
+    nPracticeTrials: function() { return nPracticeTrials; },
+    n: function() { return n; },
+    nLetters: function() { return setSizes[n]; },
+    correct_order: function(){
+      return selection
+    },
+    data: function() {
+      let normalTrialSetSizes = setSizes.slice(-4);
+      return {
+        RSPAN_setSizeSequence: normalTrialSetSizes,
+        RSPAN_duration: duration,
+        RSPAN_start: Start,
+        RSPAN_end: End,
+        subject_code: subjectCode
+      }
+    },
+    on_finish: function(){
+      arrowLength = []
+      arrowAngle = []
+      arrowCodes = []
+      nLetters = setSizes[n]
+      nLettersRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
+      n += 1
+      selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
+      selection_id = 0
+      TimeEnd = new Date();
+      End = formatDate(new Date());
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      //console.log("Arrow Recall Data:", data);
+    }
+  }
+
+  var feedback = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>"+nLettersRecalled+" out of "+nLetters+"</font> arrows in their correct order.</b><br><br>"
+      if (n>nPracticeTrials){
+        pageOne+= "You judged <font color='blue'>"+nMathAcc+" out of "+nLetters+"</font> letters accurately.<br><br></div>"
+      }
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next Trial",
+    show_clickable_nav: true,
+    on_finish: function(){
+      //console.log('nLettersRecalled:', nLettersRecalled)
+      //console.log('nLetters:', nLetters)
+      nMathAcc = 0
+    }
+  }
+
+  var feedbackLoad = {
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      var text = ""
+      var accuracy = jsPsych.data.get().last(1).values()[0].accuracy
+      if (accuracy === 1){
+        text += '<div style="font-size:35px; color:rgb(0 220 0)"><b>Correct<br><br><br><br></div>'
+      } else {
+        text += '<div style="font-size:35px; color:rgb(240 0 0)"><b>Incorrect<br><br><br><br></div>'
+      }
+      return text
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 1000
+  }
+
+  var conclusion = {
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      return '<div style="font-size:20px;">This task is complete, and the next task will start automatically in a moment. <br></div>'
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 2000
+  }
+
+  var dataLog = {
+    type: 'html-keyboard-response',
+    stimulus: " ",
+    trial_duration: 100,
+    on_finish: function(data) {
+      var trialData = JSON.parse(jsPsych.data.get().json());
+      var participantData = {};
+      // Accumulate data for each trial into the participantData object
+      trialData.forEach(row => {
+        for (var key in row) {
+          if (row.hasOwnProperty(key)) {
+            // Use the key as the column name and assign the value from the row
+            participantData[key] = row[key];
+          }
+        }
+      });
+
+      console.log("Data being sent to server:", JSON.stringify(participantData, null, 2)); // Pretty print JSON
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'data.php', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function() {
+        if(xhr.status == 200){
+          var response = JSON.parse(xhr.responseText);
+          console.log(response.success);
+        }
+      };
+      xhr.send(JSON.stringify(participantData));
+    }
+  }
+
+  var test_stack = {
+    timeline: [test_stimuli, cog_load, end_test_stimuli],
+    repetitions: 10
+  }
+
+  var test_procedure = {
+    timeline: [test_stack, recall], //add feedback after "recall" to show results of accuracy at the end of each trial
+    repetitions: nTrials
+  }
+
+  var lettersDemoStack = {
+    timeline: [test_stimuli, end_test_stimuli],
+    repetitions: 10
+  }
+
+  var lettersDemo = {
+    timeline: [lettersDemoStack, recall, feedback],
+    repetitions: nPracticeTrials
+  }
+
+  var loadDemo = {
+    timeline: [cog_load_demo, feedbackLoad],
+    repetitions: 5
+  }
+
+  var fullDemo = {
+    timeline: [test_stack, recall, feedback],
+    repetitions: nfullDemo
+  }
+
+  timeline = []
+
+  timeline = timeline.concat([instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions4, test_procedure])
+
+  timeline.push(dataLog)
+  timeline.push(conclusion)
+
+  jsPsych.init({
+    timeline: timeline,
+    on_finish: function() {
+      //window.location.href = 'http://localhost/individDiffs_Cognitive/prolific/task_index_local.html?subject_code=' + subjectCode;
+      window.location.href = 'http://simonslab.com/mot/individDiffs_Cognitive/prolific/task_index.html?subject_code=' + subjectCode;
+    }
+  });
+
+</script>
+</html>

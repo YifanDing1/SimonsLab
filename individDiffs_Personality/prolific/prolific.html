@@ -1,0 +1,177 @@
+<html lang="English">
+<head>
+    <title>Demo</title>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/jspsych-instructions.js"></script>
+    <script src="jspsych/plugin-survey-html-form.js"></script>
+    <script src="jspsych/plugin-external-html.js"></script>
+    <script src="jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+    // Function to detect browser
+
+    function detectBrowser() {
+        const userAgent = navigator.userAgent;
+        let browserName;
+
+        if (userAgent.match(/chrome|chromium|crios/i)) {
+            browserName = "Chrome";
+        } else if (userAgent.match(/firefox|fxios/i)) {
+            browserName = "Firefox";
+        } else if (userAgent.match(/safari/i)) {
+            browserName = "Safari";
+        } else if (userAgent.match(/opr\//i)) {
+            browserName = "Opera";
+        } else if (userAgent.match(/edg/i)) {
+            browserName = "Edge";
+        } else {
+            browserName = "Unknown";
+        }
+
+        return browserName;
+    }
+    function formatDate(date) {
+        // Get the date string in the CST timezone
+        const options = {
+            timeZone: 'America/Chicago',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+
+        // Format the date using Intl.DateTimeFormat
+        const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+        // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+        const [datePart, timePart] = cstDateString.split(', ');
+        const [month, day, year] = datePart.split('/');
+
+        return `${year}/${month}/${day} ${timePart}`;
+    }
+
+    let Start = formatDate(new Date());
+
+    // Generate a 9-digit subject code from Prolific ID
+    function generateSubjectCode(prolificId) {
+        let hash = 0;
+        for (let i = 0; i < prolificId.length; i++) {
+            hash = ((hash << 5) - hash) + prolificId.charCodeAt(i);
+            hash = hash & hash;
+        }
+
+        // Use smaller number range and ensure 9 digits
+        let combined = Math.abs(hash % 1000000000);
+        return combined.toString().padStart(9, '0');
+    }
+
+    let jsPsych = initJsPsych({
+        on_finish() {
+            let prolificId = jsPsych.data.getURLVariable('PROLIFIC_PID');
+            let subject_code = generateSubjectCode(prolificId);
+
+            let data = {
+                subject_id: prolificId,
+                study_id: jsPsych.data.getURLVariable('STUDY_ID'),
+                session_id: jsPsych.data.getURLVariable('SESSION_ID'),
+                start: Start,
+                browser: detectBrowser(),
+                subject_code: subject_code
+            };
+
+            sendToServer(data, function(response) {
+                if (response === "Duplicate Prolific ID") {
+                    displayDuplicateMessage();
+                } else {
+                    let nextTaskUrl = "http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html";
+                    //let nextTaskUrl = "http://localhost/individDiffs_Personality/prolific/task_index_local.html";
+                    nextTaskUrl += "?PROLIFIC_PID=" + encodeURIComponent(prolificId);
+                    nextTaskUrl += "&subject_code=" + encodeURIComponent(subject_code);
+                    window.location.href = nextTaskUrl;
+                }
+            });
+        }
+    });
+
+    function sendToServer(data, callback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'data.php', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    callback(xhr.responseText.trim());
+                } else {
+                    console.error("Error communicating with the server. Status:", xhr.status);
+                    callback(null);
+                }
+            }
+        };
+        xhr.send(JSON.stringify(data));
+    }
+
+    function displayDuplicateMessage() {
+        const message = "The study cannot be tried a second time once begun. Please message us on Prolific if you encountered any problems.";
+        const messageElement = document.createElement("div");
+        messageElement.style.textAlign = "center";
+        messageElement.style.marginTop = "100px";
+        messageElement.innerHTML = `<h2>${message}</h2>`;
+        document.body.innerHTML = "";
+        document.body.appendChild(messageElement);
+    }
+
+    let instruction = {
+        type: jsPsychInstructions,
+        pages: function(){
+            pageOne = '<div style="font-size:20px;"><br><br><br>Welcome <br><br>This study examines people\'s perception, attention and memory. <br> You will need to complete a series of tasks and questionnaires. <br>Please read through the instructions before each task carefully to make sure you understand what to do. <br><br> Click \'Start\' to begin the study. <br><br><br></div>'
+            return [pageOne]
+        },
+        allow_backward: false,
+        button_label_next: "Start",
+        show_clickable_nav: true,
+    }
+
+    // Define a callback function that will be called when reCAPTCHA is verified
+    function recaptchaCallback() {
+        document.getElementById('continue_button').disabled = false;
+    }
+
+    // Make the callback function available globally
+    window.recaptchaCallback = recaptchaCallback;
+
+    let recaptchaDirect = {
+        type: jsPsychHtmlButtonResponse,
+        stimulus: `
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Please complete the CAPTCHA to continue</h2>
+        <div id="recaptcha-container"></div>
+    </div>
+    `,
+        choices: ['Continue'],
+        button_html: '<button class="jspsych-btn" id="continue_button" disabled>%choice%</button>',
+        on_load: function() {
+            // Render reCAPTCHA after the container is in the DOM
+            grecaptcha.render('recaptcha-container', {
+                'sitekey': '6Lcg7SkrAAAAAIweglOdgXf5wqIstVHCadF5jBrL',
+                'callback': function() {
+                    document.getElementById('continue_button').disabled = false;
+                }
+            });
+        }
+    };
+
+    // Update your timeline
+    let timeline = [];
+    timeline.push(recaptchaDirect);
+    timeline.push(instruction);
+
+    jsPsych.run(timeline);
+</script>
+</html>

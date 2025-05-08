@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>reCAPTCHA Verification</title>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Please complete the CAPTCHA to continue</h2>
+        <form id="captcha-form">
+            <div class="g-recaptcha" data-sitekey="6Lcg7SkrAAAAAIweglOdgXf5wqIstVHCadF5jBrL"></div>
+            <br/>
+            <button id="submit_button" type="button" disabled>Continue</button>
+        </form>
+    </div>
+
+    <script>
+        // Enable the submit button only after reCAPTCHA is verified
+        function enableSubmitButton() {
+            document.getElementById('submit_button').disabled = false;
+        }
+        
+        // Callback for reCAPTCHA verification
+        function recaptchaCallback() {
+            enableSubmitButton();
+        }
+
+        // Add the callback to window so it's globally accessible
+        window.recaptchaCallback = recaptchaCallback;
+    </script>
+</body>
+</html>
