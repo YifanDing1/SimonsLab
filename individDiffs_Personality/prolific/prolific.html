@@ -160,12 +160,43 @@
             // Render reCAPTCHA after the container is in the DOM
             grecaptcha.render('recaptcha-container', {
                 'sitekey': '6Lcg7SkrAAAAAIweglOdgXf5wqIstVHCadF5jBrL',
-                'callback': function() {
+                'callback': function(token) {
+                    // Store the token for later use
+                    window.recaptchaToken = token;
                     document.getElementById('continue_button').disabled = false;
                 }
             });
+        },
+        on_finish: function() {
+            // Verify the token on the server before proceeding
+            verifyRecaptcha(window.recaptchaToken);
         }
     };
+
+    function verifyRecaptcha(token) {
+        // Create an AJAX request to verify the token on your server
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'recaptcha_verification.php', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    if (!response.success) {
+                        // If verification fails, show an error and don't proceed
+                        alert("CAPTCHA verification failed. Please try again.");
+                        // Optionally reload the page or the CAPTCHA
+                        window.location.reload();
+                    }
+                // If successful, the timeline will continue automatically
+            } else {
+                console.error("Error verifying reCAPTCHA. Status:", xhr.status);
+                alert("Error verifying CAPTCHA. Please try again.");
+            }
+        }
+    };
+    xhr.send(JSON.stringify({recaptcha_token: token}));
+}
 
     // Update your timeline
     let timeline = [];
