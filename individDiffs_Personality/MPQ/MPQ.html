@@ -23,6 +23,76 @@
   console.log(TimeStart)
 
   let participantResponses = {};
+  let currentSection = 0; // Track which section we're on
+  
+  // Session persistence - simplified approach
+  const SESSION_KEY = 'mpq_session_' + (subjectCode || 'default');
+  
+  function saveToSession() {
+    const sessionData = {
+      responses: participantResponses,
+      startTime: TimeStart.getTime(),
+      currentSection: currentSection,
+      lastSaved: Date.now()
+    };
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      console.log('Session saved - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+    } catch (e) {
+      console.log('Session save failed:', e);
+    }
+  }
+  
+  function loadFromSession() {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const sessionData = JSON.parse(saved);
+        participantResponses = sessionData.responses || {};
+        currentSection = sessionData.currentSection || 0;
+        TimeStart = new Date(sessionData.startTime || Date.now());
+        console.log('Session loaded - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+        return true;
+      }
+    } catch (e) {
+      console.log('Session load failed:', e);
+    }
+    return false;
+  }
+  
+  function clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      console.log('Session cleared');
+    } catch (e) {
+      console.log('Session clear failed:', e);
+    }
+  }
+
+  // Prevent page navigation
+  let isSubmitting = false;
+  
+  window.addEventListener('beforeunload', function(e) {
+    if (!isSubmitting) {
+      saveToSession();
+      e.preventDefault();
+      e.returnValue = 'Your progress will be lost if you leave this page. Are you sure?';
+      return e.returnValue;
+    }
+  });
+
+  // Prevent back button
+  history.pushState(null, null, location.href);
+  window.addEventListener('popstate', function () {
+    if (!isSubmitting) {
+      saveToSession();
+      history.pushState(null, null, location.href);
+    }
+  });
+
+  // Load any existing session
+  const hasSession = loadFromSession();
+
   // Function to handle the end of each survey block
   function handleSurveyFinish(data) {
     let responses = data.response;
@@ -36,6 +106,9 @@
     participantResponses['MPQ_Absoprtion'] = '005,013,021,030,037,045,053,060,068,073,081,090,099,108,116,123,131,141,149,156,165,173,182,189,197,208,215,223,231,238,249,257,265,273';
     participantResponses['MPQ_duration'] = duration;
     participantResponses['subject_code'] = subjectCode;
+    
+    // Save after each section completion
+    saveToSession();
   }
 
   let instruction = {
@@ -46,7 +119,11 @@
     },
     allow_backward: false,
     button_label_next: "Next",
-    show_clickable_nav: true
+    show_clickable_nav: true,
+    on_finish: function() {
+      currentSection = 1;
+      saveToSession();
+    }
   }
 
   let MPQ1 = {
@@ -118,6 +195,8 @@
     ],
     on_finish: function (data) {
       handleSurveyFinish(data);
+      currentSection = 2;
+      saveToSession();
     }
   }
 
@@ -190,6 +269,8 @@
     ],
     on_finish: function (data) {
       handleSurveyFinish(data);
+      currentSection = 3;
+      saveToSession();
     }
   }
 
@@ -261,6 +342,8 @@
     ],
     on_finish: function (data) {
       handleSurveyFinish(data);
+      currentSection = 4;
+      saveToSession();
     }
   }
 
@@ -296,6 +379,8 @@
       let TimeEnd = new Date();
       duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
       handleSurveyFinish(data);
+      currentSection = 5;
+      saveToSession();
     }
   }
 
@@ -323,13 +408,49 @@
     xhr.send(JSON.stringify(data));
   }
 
-
   //--------------timeline variables-----------------
   let timeline = [];
 
+  // Build timeline based on current section
+  if (hasSession && currentSection > 0) {
+    console.log('Resuming from section:', currentSection);
+    // Show a restoration message
+    let sectionNames = ['', 'first section', 'second section', 'third section', 'fourth section', 'final section'];
+    let resumeMessage = {
+      type: jsPsychInstructions,
+      pages: function(){
+        let pageOne = '<div style="font-size:20px;">Welcome back!<br><br>Your progress has been restored.<br><br>You will continue from the ' + sectionNames[currentSection] + '.<br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: "Continue",
+      show_clickable_nav: true
+    };
+    timeline.push(resumeMessage);
+    
+    // Add remaining sections based on currentSection
+    if (currentSection === 1) {
+      timeline.push(MPQ1, MPQ2, MPQ3, MPQ4, end);
+    } else if (currentSection === 2) {
+      timeline.push(MPQ2, MPQ3, MPQ4, end);
+    } else if (currentSection === 3) {
+      timeline.push(MPQ3, MPQ4, end);
+    } else if (currentSection === 4) {
+      timeline.push(MPQ4, end);
+    } else if (currentSection >= 5) {
+      timeline.push(end);
+    }
+  } else {
+    // Start from beginning
+    timeline.push(instruction, MPQ1, MPQ2, MPQ3, MPQ4, end);
+  }
+
   let jsPsych = initJsPsych({
     on_finish() {
+      isSubmitting = true; // Allow navigation during submission
       sendToServer(participantResponses, function() {
+        // Clear session only on successful completion
+        clearSession();
         // Only redirect after the XHR request completes
         //window.location.href = 'http://localhost/individDiffs_Personality/prolific/task_index_local.html?subject_code=' + subjectCode;
         window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
@@ -337,7 +458,6 @@
     }
   });
 
-  timeline.push(instruction, MPQ1, MPQ2, MPQ3, MPQ4, end);
   jsPsych.run(timeline);
 
 </script>
