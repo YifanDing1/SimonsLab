@@ -516,34 +516,176 @@
   }
 
   function sendToServer(data, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', 'data.php', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
+    let attempts = 0;
+    const maxAttempts = 3;
+    const timeoutDuration = 8000; // 8 seconds
 
-    // Add a simple timeout
-    setTimeout(function() {
-      if (xhr.readyState !== 4) {
-        xhr.abort();
-        console.log("Request timed out, but continuing anyway");
-        if (callback) callback(); // Continue to next task even if save failed
-      }
-    }, 10000); // 10 second timeout
+    function attemptSend() {
+      attempts++;
+      console.log(`Attempt ${attempts} to save data...`);
 
-    xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) {
-        // Only proceed if we got a successful response (200-299)
-        if (xhr.status >= 200 && xhr.status < 300) {
-          console.log("Save successful, status:", xhr.status);
-          if (callback) callback();
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'data.php', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+
+      let timeoutId = setTimeout(function() {
+        if (xhr.readyState !== 4) {
+          xhr.abort();
+          console.log(`Attempt ${attempts} timed out`);
+          handleFailure();
+        }
+      }, timeoutDuration);
+
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          clearTimeout(timeoutId);
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            console.log(`Save successful on attempt ${attempts}`);
+            updateSaveMessage('Data saved successfully! Proceeding to next task...', 'success');
+            setTimeout(callback, 1000);
+          } else {
+            console.log(`Attempt ${attempts} failed with status:`, xhr.status);
+            handleFailure();
+          }
+        }
+      };
+
+      xhr.onerror = function() {
+        clearTimeout(timeoutId);
+        console.log(`Attempt ${attempts} encountered network error`);
+        handleFailure();
+      };
+
+      function handleFailure() {
+        if (attempts < maxAttempts) {
+          updateSaveMessage(`Save attempt ${attempts} failed. Retrying... (${attempts}/${maxAttempts})`, 'warning');
+          setTimeout(attemptSend, 2000); // Wait 2 seconds before retry
         } else {
-          console.log("Save failed, status:", xhr.status, "- continuing anyway");
-          // Even if save failed, continue to next task (session data preserves responses)
-          if (callback) callback();
+          // All attempts failed - show options to user
+          showSaveFailureOptions(callback);
         }
       }
+
+      xhr.send(JSON.stringify(data));
+    }
+
+    attemptSend();
+  }
+
+  function updateSaveMessage(message, type = 'info') {
+    const colors = {
+      info: '#333',
+      warning: '#ff8c00',
+      error: '#dc3545',
+      success: '#28a745'
     };
 
-    xhr.send(JSON.stringify(data));
+    document.body.innerHTML = `
+    <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+      <div style="font-size: 24px; color: ${colors[type]}; margin-bottom: 20px;">
+        ${message}
+      </div>
+      ${type === 'info' || type === 'warning' ? '<div style="font-size: 16px; color: #666;">Please wait...</div>' : ''}
+    </div>
+  `;
+  }
+
+  function showSaveFailureOptions(callback) {
+    const saveData = JSON.stringify(participantResponses, null, 2);
+
+    document.body.innerHTML = `
+    <div style="text-align: center; padding: 40px; font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+      <h2 style="color: #dc3545; margin-bottom: 20px;">Unable to Save Data to Server</h2>
+
+      <p style="font-size: 16px; margin-bottom: 30px; line-height: 1.5;">
+        We've tried multiple times to save your responses, but there seems to be a technical issue.
+        Your responses have been preserved locally. Please choose an option below:
+      </p>
+
+      <div style="margin-bottom: 30px;">
+        <button onclick="continueToNextTask()" style="
+          background-color: #28a745;
+          color: white;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+          margin: 10px;
+        ">
+          Continue to Next Task
+        </button>
+
+        <button onclick="retryManualSave()" style="
+          background-color: #007bff;
+          color: white;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+          margin: 10px;
+        ">
+          Try Save Again
+        </button>
+
+        <button onclick="downloadData()" style="
+          background-color: #6c757d;
+          color: white;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+          margin: 10px;
+        ">
+          Download My Responses
+        </button>
+      </div>
+
+      <details style="text-align: left; margin-top: 20px;">
+        <summary style="cursor: pointer; font-weight: bold; margin-bottom: 10px;">
+          View My Responses (click to expand)
+        </summary>
+        <pre style="
+          background: #f8f9fa;
+          padding: 15px;
+          border-radius: 4px;
+          overflow: auto;
+          max-height: 300px;
+          font-size: 12px;
+          border: 1px solid #ddd;
+        ">${saveData}</pre>
+      </details>
+    </div>
+  `;
+
+    // Add the functions to the global scope
+    window.continueToNextTask = callback;
+
+    window.retryManualSave = function() {
+      updateSaveMessage('Retrying save...', 'info');
+      sendToServer(participantResponses, callback);
+    };
+
+    window.downloadData = function() {
+      const blob = new Blob([saveData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ffoci_responses_${subjectCode || 'participant'}_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Show success message
+      const downloadMsg = document.createElement('div');
+      downloadMsg.style.cssText = 'color: #28a745; font-weight: bold; margin-top: 10px;';
+      downloadMsg.textContent = 'Download started! You can now continue to the next task.';
+      document.body.appendChild(downloadMsg);
+    };
   }
 
   //--------------timeline variables-----------------
@@ -590,13 +732,14 @@
   let jsPsych = initJsPsych({
     on_finish() {
       isSubmitting = true;
-
-      // Simple loading message
-      document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-size: 18px;">Saving your responses...</div>';
+      updateSaveMessage('Saving your responses...', 'info');
 
       sendToServer(participantResponses, function() {
         clearSession();
-        window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
+        updateSaveMessage('Redirecting to next task...', 'success');
+        setTimeout(function() {
+          window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
+        }, 1500);
       });
     }
   });
