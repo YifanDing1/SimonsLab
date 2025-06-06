@@ -24,10 +24,10 @@
 
   let participantResponses = {};
   let currentSection = 0; // Track which section we're on
-  
+
   // Session persistence - simplified approach
   const SESSION_KEY = 'bf2_session_' + (subjectCode || 'default');
-  
+
   function saveToSession() {
     const sessionData = {
       responses: participantResponses,
@@ -42,7 +42,7 @@
       console.log('Session save failed:', e);
     }
   }
-  
+
   function loadFromSession() {
     try {
       const saved = sessionStorage.getItem(SESSION_KEY);
@@ -59,7 +59,7 @@
     }
     return false;
   }
-  
+
   function clearSession() {
     try {
       sessionStorage.removeItem(SESSION_KEY);
@@ -71,7 +71,7 @@
 
   // Prevent page navigation
   let isSubmitting = false;
-  
+
   window.addEventListener('beforeunload', function(e) {
     if (!isSubmitting) {
       saveToSession();
@@ -111,7 +111,7 @@
     participantResponses['BF2_Agreeableness'] = '02, 07, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57';
     participantResponses['BF2_duration'] = duration;
     participantResponses['subject_code'] = subjectCode;
-    
+
     // Save after each section completion
     saveToSession();
   }
@@ -519,12 +519,30 @@
     var xhr = new XMLHttpRequest();
     xhr.open('POST', 'data.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+
+    // Add a simple timeout
+    setTimeout(function() {
+      if (xhr.readyState !== 4) {
+        xhr.abort();
+        console.log("Request timed out, but continuing anyway");
+        if (callback) callback(); // Continue to next task even if save failed
+      }
+    }, 10000); // 10 second timeout
+
     xhr.onreadystatechange = function() {
-      if (xhr.readyState === 4) { // Complete
-        console.log("Save complete, status:", xhr.status);
-        if (callback) callback();
+      if (xhr.readyState === 4) {
+        // Only proceed if we got a successful response (200-299)
+        if (xhr.status >= 200 && xhr.status < 300) {
+          console.log("Save successful, status:", xhr.status);
+          if (callback) callback();
+        } else {
+          console.log("Save failed, status:", xhr.status, "- continuing anyway");
+          // Even if save failed, continue to next task (session data preserves responses)
+          if (callback) callback();
+        }
       }
     };
+
     xhr.send(JSON.stringify(data));
   }
 
@@ -547,7 +565,7 @@
       show_clickable_nav: true
     };
     timeline.push(resumeMessage);
-    
+
     // Add remaining sections based on currentSection
     if (currentSection === 1) {
       timeline.push(BFI1, BFI2, BFI3, BFI4, BFI5, BFI6, end);
@@ -571,12 +589,13 @@
 
   let jsPsych = initJsPsych({
     on_finish() {
-      isSubmitting = true; // Allow navigation during submission
+      isSubmitting = true;
+
+      // Simple loading message
+      document.body.innerHTML = '<div style="text-align: center; padding: 50px; font-size: 18px;">Saving your responses...</div>';
+
       sendToServer(participantResponses, function() {
-        // Clear session only on successful completion
         clearSession();
-        // Only redirect after the XHR request completes
-        //window.location.href = 'http://localhost/individDiffs_Personality/prolific/task_index_local.html?subject_code=' + subjectCode;
         window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
       });
     }
