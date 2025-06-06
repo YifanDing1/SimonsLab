@@ -304,9 +304,7 @@
     on_finish() {
       isSubmitting = true;
       updateSaveMessage('Saving your responses...', 'info');
-
       sendToServer(participantResponses, function() {
-        clearSession();
         updateSaveMessage('Redirecting to next task...', 'success');
         setTimeout(function() {
           window.location.href = 'http://simonslab.com/mot/individDiffs_Personality/prolific/task_index.html?subject_code=' + subjectCode;
