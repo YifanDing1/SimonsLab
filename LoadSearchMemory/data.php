@@ -9,7 +9,7 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Get all column names from the table and store them in an array
-    $stmt = $conn->prepare("SHOW COLUMNS FROM `IB_loadSearch_ST3`");
+    $stmt = $conn->prepare("SHOW COLUMNS FROM `IB_loadSearch_ST4`");
     $stmt->execute();
     $col_names = array();
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -17,7 +17,7 @@ try {
     }
 
     // Prepare the SQL statement for inserting data into corresponding columns
-    $sql = "INSERT INTO `IB_loadSearch_ST3` (";
+    $sql = "INSERT INTO `IB_loadSearch_ST4` (";
     $placeholders = "";
     foreach ($col_names as $col_name) {
         if (isset($data_array[$col_name])) {
