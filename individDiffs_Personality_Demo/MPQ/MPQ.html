@@ -1,0 +1,445 @@
+<html>
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-plugin-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  let duration;
+  let TimeStart = new Date();
+  console.log(TimeStart)
+
+  let participantResponses = {};
+  let currentSection = 0; // Track which section we're on
+
+  // Session persistence - simplified approach
+  const SESSION_KEY = 'mpq_session_' + (subjectCode || 'default');
+
+  function saveToSession() {
+    const sessionData = {
+      responses: participantResponses,
+      startTime: TimeStart.getTime(),
+      currentSection: currentSection,
+      lastSaved: Date.now()
+    };
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      console.log('Session saved - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+    } catch (e) {
+      console.log('Session save failed:', e);
+    }
+  }
+
+  function loadFromSession() {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const sessionData = JSON.parse(saved);
+        participantResponses = sessionData.responses || {};
+        currentSection = sessionData.currentSection || 0;
+        TimeStart = new Date(sessionData.startTime || Date.now());
+        console.log('Session loaded - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+        return true;
+      }
+    } catch (e) {
+      console.log('Session load failed:', e);
+    }
+    return false;
+  }
+
+  function clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      console.log('Session cleared');
+    } catch (e) {
+      console.log('Session clear failed:', e);
+    }
+  }
+
+  // Prevent page navigation
+  let isSubmitting = false;
+
+  window.addEventListener('beforeunload', function(e) {
+    if (!isSubmitting) {
+      saveToSession();
+      e.preventDefault();
+      e.returnValue = 'Your progress will be lost if you leave this page. Are you sure?';
+      return e.returnValue;
+    }
+  });
+
+  // Prevent back button
+  history.pushState(null, null, location.href);
+  window.addEventListener('popstate', function () {
+    if (!isSubmitting) {
+      saveToSession();
+      history.pushState(null, null, location.href);
+    }
+  });
+
+  // Load any existing session
+  const hasSession = loadFromSession();
+
+  // Function to handle the end of each survey block
+  function handleSurveyFinish(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        // Store each response in the participantResponses object
+        participantResponses[questionName] = responses[questionName];
+      }
+    }
+    participantResponses['MPQ_nItemsTotal'] = '34';
+    participantResponses['MPQ_Absoprtion'] = '005,013,021,030,037,045,053,060,068,073,081,090,099,108,116,123,131,141,149,156,165,173,182,189,197,208,215,223,231,238,249,257,265,273';
+    participantResponses['MPQ_duration'] = duration;
+    participantResponses['subject_code'] = subjectCode;
+
+    // Save after each section completion
+    saveToSession();
+  }
+
+  let instruction = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="font-size:20px;">In this task, you will answer some questions about yourself. <br><br>Please respond to each question by selecting the option that best describes you. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+    on_finish: function() {
+      currentSection = 1;
+      saveToSession();
+    }
+  }
+
+  let MPQ1 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "Sometimes I feel and experience things as I did when I was a child.",
+        name: 'MPQ_005',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I can be greatly moved by eloquent or poetic language.",
+        name: 'MPQ_013',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "While watching a movie, a T.V. show, or a play, I may become so involved that I forgot about myself and my surroundings," +
+                " and experience the story as if it were real and as if I were taking part in it.",
+        name: 'MPQ_021',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "If I stare at a picture and then look away from it, I can sometimes \"see\" an image of the picture, " +
+                "almost as if I were still looking at it.",
+        name: 'MPQ_030',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Sometimes I feel as if my mind could envelop the whole world.",
+        name: 'MPQ_037',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I like to watch cloud shapes change in the sky.",
+        name: 'MPQ_045',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "If I wish I can imagine (or daydream) some things so vividly that it\'s like watching a good movie or " +
+                "hearing a good story.",
+        name: 'MPQ_053',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I think I really know what some people mean when they talk about mystical experiences",
+        name: 'MPQ_060',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I sometimes \"step outside\" my usual self and experience a completely different state of being.",
+        name: 'MPQ_068',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Textures \- such as wool, sand, wood \- sometimes remind me of colors or music.",
+        name: 'MPQ_073',
+        options: ['True', 'False'],
+        required: true
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 2;
+      saveToSession();
+    }
+  }
+
+  let MPQ2 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "Sometimes I experience things as if they were doubly real.",
+        name: 'MPQ_081',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "When I listen to music I can get so caught up in it that I don\'t notice anything else.",
+        name: 'MPQ_090',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "If I wish I can imagine that my body is so heavy that I cannot move it.",
+        name: 'MPQ_099',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I can often somehow sense the presence of another person before I actually see or hear her/him.",
+        name: 'MPQ_108',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "The crackle and flames of a wood fire stimulate my imagination.",
+        name: 'MPQ_116',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Sometimes I am so immersed in nature or in art that I feel as if my whole state of consciousness " +
+                "has somehow been temporarily changed.",
+        name: 'MPQ_123',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Different Colors have distinctive and special meanings for me.",
+        name: 'MPQ_131',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I can so completely wander off into my own thoughts while doing a routine task that I actually forget that I am " +
+                "doing the task and find a few minutes later that I have finished it.",
+        name: 'MPQ_141',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I can sometimes recall certain past experiences in my life so clearly and vividly that " +
+                "it is like living them again, or almost so.",
+        name: 'MPQ_149',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Things that might seem meaningless to others often make sense to me.",
+        name: 'MPQ_156',
+        options: ['True', 'False'],
+        required: true
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 3;
+      saveToSession();
+    }
+  }
+
+  let MPQ3 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "If I acted in a play I think I would really feel the emotions of the character and \"become\" " +
+                "that person for the time being, forgetting both myself and the audience.",
+        name: 'MPQ_165',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "My thoughts often occur as visual images rather than as words.",
+        name: 'MPQ_173',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I am often delighted by small things (like the colors in soap bubbles and the five\-pointed star shape " +
+                "that appears when you cut an apple across the core.",
+        name: 'MPQ_182',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "When listening to organ music or other powerful music, I sometimes feel as if I am being lifted into the air.",
+        name: 'MPQ_189',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Sometimes I can change noise into music by the way I listen to it.",
+        name: 'MPQ_197',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Some of my most vivid memories are called up by scents and smells.",
+        name: 'MPQ_208',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Some music reminds me of pictures or changing patterns of color.",
+        name: 'MPQ_215',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I often know what someone is going to say before he or she says it.",
+        name: 'MPQ_223',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I often have \"physical memories\"; for example, after I\'ve been swimming I may feel as if I\'m still in the water.",
+        name: 'MPQ_231',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "The sound of a voice can be so fascinating to me that I can just go on listening to it.",
+        name: 'MPQ_238',
+        options: ['True', 'False'],
+        required: true
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 4;
+      saveToSession();
+    }
+  }
+
+  let MPQ4 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "At times I somehow feel the presence of someone who is not physically there.",
+        name: 'MPQ_249',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "Sometimes thoughts and images come to me without any effort on my part.",
+        name: 'MPQ_257',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I find that different smells have different colors.",
+        name: 'MPQ_265',
+        options: ['True', 'False'],
+        required: true
+      },
+      {
+        prompt: "I can be deeply moved by a sunset.",
+        name: 'MPQ_273',
+        options: ['True', 'False'],
+        required: true
+      }
+    ],
+    on_finish: function (data) {
+      let TimeEnd = new Date();
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      handleSurveyFinish(data);
+      currentSection = 5;
+      saveToSession();
+    }
+  }
+
+  let end = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">Press "Continue" to proceed to the next task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Continue",
+    show_clickable_nav: true
+  }
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  // Build timeline based on current section
+  if (hasSession && currentSection > 0) {
+    console.log('Resuming from section:', currentSection);
+    // Show a restoration message
+    let sectionNames = ['', 'first section', 'second section', 'third section', 'fourth section', 'final section'];
+    let resumeMessage = {
+      type: jsPsychInstructions,
+      pages: function(){
+        let pageOne = '<div style="font-size:20px;">Welcome back!<br><br>Your progress has been restored.<br><br>You will continue from the ' + sectionNames[currentSection] + '.<br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: "Continue",
+      show_clickable_nav: true
+    };
+    timeline.push(resumeMessage);
+
+    // Add remaining sections based on currentSection
+    if (currentSection === 1) {
+      timeline.push(MPQ1, MPQ2, MPQ3, MPQ4, end);
+    } else if (currentSection === 2) {
+      timeline.push(MPQ2, MPQ3, MPQ4, end);
+    } else if (currentSection === 3) {
+      timeline.push(MPQ3, MPQ4, end);
+    } else if (currentSection === 4) {
+      timeline.push(MPQ4, end);
+    } else if (currentSection >= 5) {
+      timeline.push(end);
+    }
+  } else {
+    // Start from beginning
+    timeline.push(instruction, MPQ1, MPQ2, MPQ3, MPQ4, end);
+  }
+
+  let jsPsych = initJsPsych({
+    on_finish() {
+      isSubmitting = true;
+      window.location.href = 'http://simonslab.com/mot/individDiffs_Personality_Demo/prolific/task_index.html';
+    }
+  });
+
+  jsPsych.run(timeline);
+
+</script>
+</html>

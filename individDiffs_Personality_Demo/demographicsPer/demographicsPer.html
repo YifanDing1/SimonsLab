@@ -1,0 +1,133 @@
+<html>
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/plugin-survey.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  function formatDate(date) {
+    // Get the date string in the CST timezone
+    const options = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // Format the date using Intl.DateTimeFormat
+    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+    const [datePart, timePart] = cstDateString.split(', ');
+    const [month, day, year] = datePart.split('/');
+
+    return `${year}/${month}/${day} ${timePart}`;
+  }
+
+  let participantResponses = {};
+  let End;
+
+  // Function to handle the end of each survey block
+  function handleSurveyFinish(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        // Store each response and its corresponding score
+        participantResponses[questionName] = responses[questionName];
+      }
+    }
+    participantResponses['subject_code'] = subjectCode;
+    participantResponses['end_time'] = End;
+  }
+
+  let instruction = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="font-size:20px;"><br><br><br>Please answer the two short questions about your demographic information in the next page. <br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "continue",
+    show_clickable_nav: true
+  }
+
+  let demographic = {
+    type: jsPsychSurvey,
+    pages: [
+      [
+        {
+          type: 'multi-choice',
+          prompt: "Do you need vision correction (glasses, contacts)?",
+          name: 'visionCorrection_need',
+          options: ['Yes', 'No'],
+          required: true
+        },
+        {
+          type: 'multi-choice',
+          prompt: "Do you currently use vision correction?",
+          name: 'visionCorrection_use',
+          options: ['Yes', 'No'],
+          required: true
+        },
+        {
+          type: 'text',
+          prompt: "What is your gender?",
+          name: 'gender',
+          required: true,
+        },
+        {
+          type: 'drop-down',
+          prompt: "Where do you live?",
+          options: ["Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua & Deps", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", "Central African Rep", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Congo {Democratic Rep}", "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland {Republic}", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea North", "Korea South", "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar, {Burma}", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "Norway", "Oman", "Pakistan", "Palau", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russian Federation", "Rwanda", "St Kitts & Nevis", "St Lucia", "Saint Vincent & the Grenadines", "Samoa", "San Marino", "Sao Tome & Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad & Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"],
+          name: 'country',
+          required: true
+        }
+      ]
+    ],
+    button_label_finish: 'continue',
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+    }
+  }
+
+  let debrief = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">Thank you for participating in our study. We are examining a phenomenon known as inattentional blindness. When people focus attention on a challenging task, they tend not to notice other unexpected events in the display. This study used three different types of inattentional blindness tasks (the search for number task, the cross-judgment task, and the moving shapes task). The other tasks we included will allow us to test whether individual differences in traits such as memory capacity or personality can be used to predict who is more likely to notice an unexpected  object or event. If you would like more information about the study or if you have any questions, please message us via Prolific. <br><br><br></div>'
+      return [pageOne]
+    },
+    on_finish: function (data) {
+      End = formatDate(new Date());
+      handleSurveyFinish(data);
+    },
+    allow_backward: false,
+    button_label_next: "End of study",
+    show_clickable_nav: true
+  }
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  let jsPsych = initJsPsych({
+  });
+
+  timeline.push(instruction, demographic, debrief);
+  jsPsych.run(timeline);
+</script>
+</html>

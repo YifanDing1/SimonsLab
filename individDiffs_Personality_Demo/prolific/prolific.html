@@ -1,0 +1,77 @@
+<html lang="English">
+<head>
+    <title>Demo</title>
+    <script src="jspsych/jspsych.js"></script>
+    <script src="jspsych/jspsych-instructions.js"></script>
+    <script src="jspsych/plugin-survey-html-form.js"></script>
+    <script src="jspsych/plugin-external-html.js"></script>
+    <script src="jspsych/plugin-html-keyboard-response.js"></script>
+    <script src="jspsych/plugin-html-button-response.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
+    <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+
+    function formatDate(date) {
+        // Get the date string in the CST timezone
+        const options = {
+            timeZone: 'America/Chicago',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+
+        // Format the date using Intl.DateTimeFormat
+        const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+        // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+        const [datePart, timePart] = cstDateString.split(', ');
+        const [month, day, year] = datePart.split('/');
+
+        return `${year}/${month}/${day} ${timePart}`;
+    }
+
+    let Start = formatDate(new Date());
+
+    // Generate a 9-digit subject code from Prolific ID
+    function generateSubjectCode(prolificId) {
+        let hash = 0;
+        for (let i = 0; i < prolificId.length; i++) {
+            hash = ((hash << 5) - hash) + prolificId.charCodeAt(i);
+            hash = hash & hash;
+        }
+
+        // Use smaller number range and ensure 9 digits
+        let combined = Math.abs(hash % 1000000000);
+        return combined.toString().padStart(9, '0');
+    }
+
+    let jsPsych = initJsPsych({
+        on_finish() {
+            window.location.href = "http://simonslab.com/mot/individDiffs_Personality_Demo/prolific/task_index.html";
+        }
+    });
+
+    let instruction = {
+        type: jsPsychInstructions,
+        pages: function(){
+            pageOne = '<div style="font-size:20px;"><br><br><br>Welcome <br><br>This study examines people\'s perception, attention and memory. <br> You will need to complete a series of tasks and questionnaires. <br>Please read through the instructions before each task carefully to make sure you understand what to do. <br><br> Click \'Start\' to begin the study. <br><br><br></div>'
+            return [pageOne]
+        },
+        allow_backward: false,
+        button_label_next: "Start",
+        show_clickable_nav: true,
+    }
+
+    // Update your timeline
+    let timeline = [];
+    timeline.push(instruction);
+
+    jsPsych.run(timeline);
+</script>
+</html>

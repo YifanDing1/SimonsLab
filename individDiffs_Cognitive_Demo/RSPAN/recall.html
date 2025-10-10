@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<div id="directions">
+    <svg width="600" height="600" viewbox="86 80 250 250" style="border: none;"></svg>
+
+    <div id="responses"></div>
+
+    <script>
+        const svg = document.querySelector('svg');
+        let arrowCounter = 0;
+        const directions = [0, 45, 90, 135, 180, 225, 270, 315];
+        const lengths = [80, 40];
+        const headSize = 6;
+
+        const groupShort = document.createElementNS("http://www.w3.org/2000/svg", 'g');
+        const groupLong = document.createElementNS("http://www.w3.org/2000/svg", 'g');
+        svg.appendChild(groupLong); // Append the group for long arrows first
+        svg.appendChild(groupShort); // Then append the group for short arrows
+
+        // Function to create an arrow
+        function createArrow(x1, y1, x2, y2, length, angle) {
+            arrowCounter++;
+            const arrowID = "arrow-" + arrowCounter;
+            const arrow = document.createElementNS("http://www.w3.org/2000/svg", 'line');
+            const angle_ = Math.atan2(y1 - y2, x1 - x2);
+            const adjustedX2 = x2 + headSize * Math.cos(angle_);
+            const adjustedY2 = y2 + headSize * Math.sin(angle_);
+            arrow.setAttribute('x1', x1);
+            arrow.setAttribute('y1', y1);
+            arrow.setAttribute('x2', adjustedX2);
+            arrow.setAttribute('y2', adjustedY2);
+            arrow.setAttribute('stroke', 'black');
+            arrow.setAttribute('stroke-width', '2');
+            arrow.classList.add('arrow');
+
+            let code = `${angle}-${length}`
+            arrow.setAttribute('code', code);
+            arrow.setAttribute('data-id', arrowID);
+            svg.appendChild(arrow);
+
+            // Calculate hitbox dimensions
+            const padding = 5; // Adjust padding for easier clicking
+            const deltaX = x2 - x1;
+            const deltaY = y2 - y1;
+            const arrowLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const angleRad = Math.atan2(deltaY, deltaX);
+            // Calculate the bounding box for the arrow
+            const rectWidth = arrowLength + padding * 2;
+            const rectHeight = headSize + padding * 2;
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            const rectX = midX - rectWidth / 2;
+            const rectY = midY - rectHeight / 2;
+            // Create and append hitbox
+            const hitbox = document.createElementNS("http://www.w3.org/2000/svg", 'rect');
+            hitbox.setAttribute('x', rectX);
+            hitbox.setAttribute('y', rectY);
+            hitbox.setAttribute('width', rectWidth);
+            hitbox.setAttribute('height', rectHeight);
+            hitbox.setAttribute('fill', 'transparent');
+            hitbox.classList.add('arrow-hitbox');
+            hitbox.setAttribute('data-id', arrowID);
+            // Correct the rotation angle and apply
+            const rotationAngle = angleRad * (180 / Math.PI); // Convert radians to degrees
+            hitbox.setAttribute('transform', `rotate(${rotationAngle},${midX},${midY})`);
+            svg.insertBefore(hitbox, svg.firstChild); // Insert hitbox before arrow
+
+            // Arrowhead
+            const headX1 = adjustedX2 + headSize * Math.cos(angle_ - Math.PI / 7);
+            const headY1 = adjustedY2 + headSize * Math.sin(angle_ - Math.PI / 7);
+            const headX2 = adjustedX2 + headSize * Math.cos(angle_ + Math.PI / 7);
+            const headY2 = adjustedY2 + headSize * Math.sin(angle_ + Math.PI / 7);
+            const arrowhead = document.createElementNS("http://www.w3.org/2000/svg", 'polygon');
+            arrowhead.setAttribute('points', `${x2},${y2} ${headX1},${headY1} ${headX2},${headY2}`);
+            arrowhead.setAttribute('code', code)
+            arrowhead.setAttribute('fill', 'black');
+            arrowhead.classList.add('arrow');
+            arrowhead.setAttribute('data-id', arrowID);
+            svg.appendChild(arrowhead);
+
+            // Attach click event
+// Modified handleClick function for recall.html
+const handleClick = () => {
+    const clickedID = arrow.getAttribute('data-id');
+    const selectedArrow = document.querySelector(`.arrow[data-id="${clickedID}"]`);
+    const selectedArrowhead = document.querySelector(`polygon[data-id="${clickedID}"]`);
+    const code = `${angle}-${length}`;
+
+    // Find if this arrow was already selected
+    const existingIndex = recalledGrid.indexOf(code);
+
+    if (existingIndex !== -1) {
+        // Arrow was already selected - deselect it
+        selectedArrow.setAttribute('stroke', 'black');
+        selectedArrow.setAttribute('fill', 'black');
+        selectedArrowhead.setAttribute('fill', 'black');
+        selectedArrowhead.setAttribute('stroke', 'black');
+
+        // Remove the data from arrays
+        recalledGrid.splice(existingIndex, 1);
+        recalledAngle.splice(existingIndex, 1);
+        recalledLength.splice(existingIndex, 1);
+    } else {
+        // New selection - color it red and add data
+        selectedArrow.setAttribute('stroke', 'red');
+        selectedArrow.setAttribute('fill', 'red');
+        selectedArrowhead.setAttribute('fill', 'red');
+        selectedArrowhead.setAttribute('stroke', 'red');
+
+        // Add data
+        recalledGrid.push(code);
+        recalledAngle.push(`${angle}`);
+        recalledLength.push(`${length}`);
+    }
+
+    console.log(recalledGrid);
+}
+
+
+            arrow.addEventListener('click', handleClick);
+            arrowhead.addEventListener('click', handleClick);
+            hitbox.addEventListener('click', handleClick);
+
+            const targetGroup = length === 40 ? groupShort : groupLong;
+            // Append elements to the target group
+            targetGroup.appendChild(hitbox);
+            targetGroup.appendChild(arrow);
+            targetGroup.appendChild(arrowhead);
+        }
+
+        //Function to compare arrow lengths for sorting
+        function compareArrowLength(a, b) {
+            return b.length - a.length;
+        }
+
+        // Generate all arrows
+        let arrowData = [];
+        directions.forEach(angle => {
+            lengths.forEach(length => {
+                let a = angle - 90;
+                let actual_angle = {
+                    180: 0,
+                    135: 45,
+                    90: 90,
+                    45: 135,
+                    0: 180,
+                    315: 225,
+                    270: 270,
+                    225: 315,
+                }[angle];
+
+                const endX = 200 + length * Math.cos(a * (Math.PI / 180));
+                const endY = 200 - length * Math.sin(a * (Math.PI / 180));
+                arrowData.push({x1: 200, y1: 200, x2: endX, y2: endY, length: length, angle: actual_angle});
+            });
+        });
+
+        // Sort arrow data by length
+        arrowData.sort(compareArrowLength);
+
+        // Create arrows based on sorted data
+        arrowData.forEach(data => {
+            createArrow(data.x1, data.y1, data.x2, data.y2, data.length, data.angle);
+        });
+
+    </script>
+</div>

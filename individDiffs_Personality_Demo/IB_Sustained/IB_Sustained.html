@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset=\"utf-8\">
+    <title>Multiple Object Tracking</title>
+    <style>
+        #all {
+            width: 700px;
+            font-family: "Tahoma", sans-serif;
+            margin: 10px auto 10px auto;
+            font-size: 20px;
+            text-align: center;
+        }
+        #objects {
+            background-color: #7676A7;
+            display: block;
+            margin: 0 auto;
+        }
+        #fixation {
+            display: block;
+            margin: 0 auto;
+            width: 666px;
+            height: 546px;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        .svg-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* Two columns */
+            gap: 10px; /* Space between grid items */
+        }
+        .svg-box {
+            margin: 20px;
+            position: relative;
+        }
+        .svg-box svg {
+            width: 80px;
+            height: auto;
+        }
+        fieldset {
+            border: 0px;
+            font-family: "Tahoma", sans-serif;
+            padding-left: 0px;
+            padding-right: 0px;
+        }
+        button.selected {
+            background-color: #4c8bf5 !important;
+            border-color: #4c8bf5 !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="all" style="position: relative; visibility: hidden">
+    <form id="task_data" name="task_data" method="post"><fieldset>
+        <canvas id="objects" width="666" height="546" style="z-index:1"></canvas>
+        <canvas id="fixation" width="666" height="546" style="z-index:2"></canvas>
+        <button
+                name="myButton" id="myButton"
+                style="position:absolute; z-index:3; top:520px; left:305px; font-size:20px;"
+                disabled
+                onclick="setTimeout(function() {
+                document.getElementById('myButton')
+                .setAttribute('disabled', true)})"
+        > Continue </button>
+
+        <script>
+            let button = document.getElementById('myButton')
+            function disable_button() {
+                button.removeAttribute('disabled')
+            }
+        </script>
+
+        <script>
+            function checkBothCounts() {
+                var circleCount = document.getElementById('count_circle').value;
+                var squareCount = document.getElementById('count_square').value;
+
+                if (circleCount && squareCount) {
+                    disable_button();
+                }
+            }
+
+            function clearOtherButtons(clickedButton, containerId) {
+                var allButtons = document.querySelectorAll('#' + containerId + ' button');
+                allButtons.forEach(function(button) {
+                    if (button !== clickedButton) {
+                        button.classList.remove('selected');
+                    }
+                });
+            }
+        </script>
+
+        <div>
+            <input
+                    type="number" id="count" min="0" max="100"
+                    placeholder="Enter count"
+                    style="position:absolute; z-index:3; top:270px; left:300px; width:99px"
+                    oninput="disable_button()">
+        </div>
+
+        <div id="input_circle">
+            <label for="count_circle" style="position:absolute; z-index:3; top:240px; left:300px; color:white;">Bounces by circles:</label>
+            <input
+                    type="number" id="count_circle" min="0" max="100"
+                    placeholder="Enter count"
+                    style="position:absolute; z-index:3; top:270px; left:300px; width:99px"
+                    oninput="checkBothCounts()">
+        </div>
+
+        <div id="input_square">
+            <label for="count_square" style="position:absolute; z-index:3; top:310px; left:300px; color:white;">Bounces by squares:</label>
+            <input
+                    type="number" id="count_square" min="0" max="100"
+                    placeholder="Enter count"
+                    style="position:absolute; z-index:3; top:340px; left:300px; width:99px"
+                    oninput="checkBothCounts()">
+        </div>
+
+        <div id="ibShape" class="svg-container" align='center' style="position:absolute; z-index:3; top:200px; left:90px; color:white">
+            <div style="display:flex; justify-content:space-between; width:400px;">
+                <div class="svg-box" style="text-align:center;">
+                    <button type="button" onclick="this.classList.add('selected'); clearOtherButtons(this, 'ibShape'); document.querySelector('input[name=ibRespShape][value=cross]').checked = true; disable_button();" style="background-color:#f0f0f0; border-radius:4px; border:1px solid #ccc; cursor:pointer; padding:5px; width:100px; display:block; margin:0 auto 10px auto;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="0" y1="50" x2="100" y2="50" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="50" y1="0" x2="50" y2="100" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </button>
+                    <!-- Hidden radio button -->
+                    <input type="radio" name="ibRespShape" value="cross" style="display:none">
+                </div>
+
+                <div class="svg-box" style="text-align:center;">
+                    <button type="button" onclick="this.classList.add('selected'); clearOtherButtons(this, 'ibShape'); document.querySelector('input[name=ibRespShape][value=Z]').checked = true; disable_button();" style="background-color:#f0f0f0; border-radius:4px; border:1px solid #ccc; cursor:pointer; padding:5px; width:100px; display:block; margin:0 auto 10px auto;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="10" y1="10" x2="90" y2="10" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="87" y1="9" x2="13.3" y2="90" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="10" y1="90" x2="90" y2="90" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </button>
+                    <!-- Hidden radio button -->
+                    <input type="radio" name="ibRespShape" value="Z" style="display:none">
+                </div>
+
+                <div class="svg-box" style="text-align:center;">
+                    <button type="button" onclick="this.classList.add('selected'); clearOtherButtons(this, 'ibShape'); document.querySelector('input[name=ibRespShape][value=L]').checked = true; disable_button();" style="background-color:#f0f0f0; border-radius:4px; border:1px solid #ccc; cursor:pointer; padding:5px; width:100px; display:block; margin:0 auto 10px auto;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="25" y1="10" x2="25" y2="90" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="20" y1="90" x2="75" y2="90" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </button>
+                    <!-- Hidden radio button -->
+                    <input type="radio" name="ibRespShape" value="L" style="display:none">
+                </div>
+
+                <div class="svg-box" style="text-align:center;">
+                    <button type="button" onclick="this.classList.add('selected'); clearOtherButtons(this, 'ibShape'); document.querySelector('input[name=ibRespShape][value=T]').checked = true; disable_button();" style="background-color:#f0f0f0; border-radius:4px; border:1px solid #ccc; cursor:pointer; padding:5px; width:100px; display:block; margin:0 auto 10px auto;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="10" y1="20" x2="90" y2="20" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="50" y1="20" x2="50" y2="100" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </button>
+                    <!-- Hidden radio button -->
+                    <input type="radio" name="ibRespShape" value="T" style="display:none">
+                </div>
+            </div>
+        </div>
+
+        <div id="ibDirection" align = 'left' style="position:absolute; z-index:3; top:220px; left:290px; color:white">
+            <input type="radio" name="ibRespDirection" value="toLeft" oninput="disable_button()">
+            <label for="ibRespDirection"> Right to Left </label> <br><br>
+            <input type="radio" name="ibRespDirection" value="toRight" oninput="disable_button()">
+            <label for="ibRespDirection"> Left to Right </label> <br>
+        </div>
+
+        <div id="priorib" align='center' style="position:absolute; z-index:3; top:200px; left:200px; width:300px;">
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <button type="button" name="prior-btn" value="No"
+                        onclick="this.classList.add('selected'); document.querySelector('#priorib button[value=Yes]').classList.remove('selected'); document.querySelector('input[name=prior][value=No]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    No
+                </button>
+                <button type="button" name="prior-btn" value="Yes"
+                        onclick="this.classList.add('selected'); document.querySelector('#priorib button[value=No]').classList.remove('selected'); document.querySelector('input[name=prior][value=Yes]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    Yes
+                </button>
+            </div>
+            <!-- Hidden radio buttons to maintain compatibility with your existing code -->
+            <input type="radio" name="prior" value="No" style="display:none">
+            <input type="radio" name="prior" value="Yes" style="display:none">
+            <br><br>
+            <input type="text" name="prior" id="taskFamiliarDescription" value="" style="height: 25px; width: 200px">
+        </div>
+
+        <div id="lookFor" align='center' style="position:absolute; z-index:3; top:200px; left:200px; width:300px;">
+            <br><br>
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <button type="button" name="lookFor" value="No"
+                        onclick="this.classList.add('selected'); document.querySelector('#lookFor button[value=Yes]').classList.remove('selected'); document.querySelector('input[name=lookFor][value=No]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    No
+                </button>
+                <button type="button" name="lookFor" value="Yes"
+                        onclick="this.classList.add('selected'); document.querySelector('#lookFor button[value=No]').classList.remove('selected'); document.querySelector('input[name=lookFor][value=Yes]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    Yes
+                </button>
+            </div>
+            <!-- Hidden radio buttons to maintain compatibility with your existing code -->
+            <input type="radio" name="lookFor" value="No" style="display:none">
+            <input type="radio" name="lookFor" value="Yes" style="display:none">
+        </div>
+
+        <div id="YesNo" align='center' style="position:absolute; z-index:3; top:200px; left:200px; width:300px;">
+            <div style="display:flex; justify-content:space-between; width:100%;">
+                <button type="button" name="prior" value="No"
+                        onclick="this.classList.add('selected'); document.querySelector('#YesNo button[value=Yes]').classList.remove('selected'); document.querySelector('input[name=prior][value=No]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    No
+                </button>
+                <button type="button" name="prior" value="Yes"
+                        onclick="this.classList.add('selected'); document.querySelector('#YesNo button[value=No]').classList.remove('selected'); document.querySelector('input[name=prior][value=Yes]').checked = true; disable_button();"
+                        style="background-color:#f0f0f0; padding:10px 20px; margin:5px; border-radius:4px; border:1px solid #ccc; cursor:pointer; font-size:16px; width:120px;">
+                    Yes
+                </button>
+            </div>
+            <!-- Hidden radio buttons to maintain compatibility with your existing code -->
+            <input type="radio" name="prior" value="No" style="display:none">
+            <input type="radio" name="prior" value="Yes" style="display:none">
+        </div>
+        <div id="cboxes" align="left" style="position:absolute; z-index:3; top:200px; left:160px; color:white;">
+            <input type="text" name="playback" id="play_text" value="" oninput="disable_button()" style="height: 50px; width: 400px">
+        </div>
+        <script type="text/javascript">
+            window.onload = function() {
+                //Hide all the form bits for now
+                document.getElementById("task_submit").style.visibility = 'hidden';
+                document.getElementById("count").style.visibility = 'hidden';
+                document.getElementById("count_circle").style.visibility = 'hidden';
+                document.getElementById("input_circle").style.visibility = 'hidden';
+                document.getElementById("count_square").style.visibility = 'hidden';
+                document.getElementById("input_square").style.visibility = 'hidden';
+                document.getElementById("myButton").style.visibility = 'hidden';
+                document.getElementById("ibDirection").style.visibility = 'hidden';
+                document.getElementById("ibShape").style.visibility = 'hidden';
+                document.getElementById("cboxes").style.visibility = 'hidden';
+                document.getElementById("priorib").style.visibility = 'hidden';
+                document.getElementById("lookFor").style.visibility = 'hidden';
+                document.getElementById("YesNo").style.visibility = 'hidden';
+
+                //Define global experiment parameters
+                function getSubjectFromUrl() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+                }
+
+                // Retrieve the subject_code value
+                const subjectCode = getSubjectFromUrl();
+                console.log("subject_code value from URL:", subjectCode);
+
+                var isFinalSubmit = false;
+                var finalSubmitButton = document.getElementById('task_submit');
+                finalSubmitButton.addEventListener('click', function() {
+                    isFinalSubmit = true;
+                });
+
+                function formatDate(date) {
+                    // Get the date string in the CST timezone
+                    const options = {
+                        timeZone: 'America/Chicago',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    };
+
+                    // Format the date using Intl.DateTimeFormat
+                    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+                    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+                    const [datePart, timePart] = cstDateString.split(', ');
+                    const [month, day, year] = datePart.split('/');
+
+                    return `${year}/${month}/${day} ${timePart}`;
+                }
+
+                var Day = formatDate(new Date()); //The Time saved here is in UTC, which is 5 to 6 hours different from CST.
+                console.log(Day);
+                var TimeStart = new Date();
+                var canvas = document.getElementById('objects');
+                var canvasFix = document.getElementById('fixation');
+                var context = canvas.getContext('2d');
+                var contextFix = canvasFix.getContext('2d');
+                var stimWidth = 44;
+                var barThickness = Math.round(0.25 * stimWidth);
+                var frameTime = 27;  // Duration in ms of each frame. 33 results in FPS of 30.
+                var numObjects = 8;  // Number of objects total.  Must be an even number.
+                var trialStartTime = 0;
+                var waitTime = 1000;
+                var trialDur = 19000; // Trial duration default: 19000
+                var ib = false;
+                var ibStart = 5000;
+                SingleOrDualCounts = Math.random() < 0.5 ? 0 : 1;
+
+                var trialSequence = ["start", "no_ib", "no_ib", "ib", "shapeIB", "LookForUEO", "divid_attend", "shapeIB", "LookForUEO_post", "playback_pre", "playback", "end"];
+                //var trialSequence = ["start", "shapeIB", "LookForUEO", "divid_attend", "shapeIB", "LookForUEO_post", "playback_pre", "playback", "end"];
+
+                var conditionDict = {
+                    0: ["white", "black", "circles", "squares"],
+                    1: ["white", "black", "squares", "circles"],
+                };
+
+                var demo_data = {
+                    subject_code: subjectCode,
+                    Day: '',
+                    DayEnd: '',
+                    glitches: '',
+                    glitchesDescription: '',
+                };
+                demo_data['Day'] = Day;
+                console.log('subject_code', demo_data['subject_code']);
+
+                function getRadioValue(name, clear) {
+                    var group = document.getElementsByName(name);
+                    for (var i = 0; i < group.length; i++) {
+                        if (group[i].checked) {
+                            val = group[i].value;
+                            if (clear) {
+                                group[i].checked = false;
+                            }
+                            return val;
+                        }
+                    }
+                    return '';
+                }
+
+                function get_condition() {
+                    document.getElementById('task_data').addEventListener('submit', function(event){
+                        event.preventDefault();
+                        if (!isFinalSubmit) {
+                            // If it's not the final submit, do nothing or handle as needed
+                            return;
+                        }
+                        // Reset the flag
+                        isFinalSubmit = false;
+
+                        var formData = new FormData(this);
+                        var object = {};
+
+                        formData.forEach(function(value, key){
+                            console.log(key + ": " + value); // This will log each key-value pair
+                            object[key] = value;
+                        });
+                        console.log("Data being sent:", object);
+
+                        var json = JSON.stringify(object);
+                        console.log("Data won't be recorded:", json);
+                        window.location.href = 'http://simonslab.com/mot/individDiffs_Personality_Demo/prolific/task_index.html';
+                    });
+                }
+
+                var ibshapes = ['cross', 'Z', 'L', 'T'];
+                function assign_condition() {
+                    IB_S_BackgroundRGB = "#7676A7";
+                    ibColor = "grey";
+                    IB_S_UnexpectedObjectRGB = '#777777';
+                    ibShape = ibshapes[Math.floor(Math.random() * ibshapes.length)];
+
+                    rnd = Math.floor(Math.random() * 2)
+                    random1 = conditionDict[rnd][0]
+                    random2 = conditionDict[rnd][1]
+                    random3 = conditionDict[rnd][2]
+                    random4 = conditionDict[rnd][3]
+                    attendedColor = random1; // attended set name for the instructions
+                    attendedShape = random3;
+                    unattendedColor = random2; //inverse[attendedColor];
+                    unattendedShape = random4;
+
+                    trial_data = {
+                        IB_S_SingleOrDualCounts: '',
+                        UnexpectedObjectDuration: '10s',
+                        attendedColor: attendedColor,
+                        ignoredColor: unattendedColor,
+                        ibShapeCrit: '',
+                        ibDirectionCrit: '',
+                        ibShapeVio: '',
+                        ibDirectionVio: '',
+                        ChoiceArray: '+,Z,L,T',
+                        Circle_bounces: [],
+                        Square_bounces: [],
+                        All_bounces: [],
+                        circle_counts: [],
+                        square_counts: [],
+                        All_counts: [],
+                        t1_acc: '',
+                        t2_acc: '',
+                        t3_acc: '',
+                        t4_acc: '',
+                        t_12_acc: '',
+                        t3_notice_ib: '',
+                        t4_notice_ib: '',
+                        shapeResponse: [],
+                        lookingForUEO: '',
+                        lookingForUEO_divid: '',
+
+                        trialDuration: trialDur,
+                        resp_ib_obj: '',
+                        notice_full: '',
+                    };
+
+                    nameSingleOrDualCounts();
+                    function nameSingleOrDualCounts(){
+                        if (SingleOrDualCounts === 1) {
+                            trial_data["IB_S_SingleOrDualCounts"] = 'dual'
+                        } else {
+                            trial_data["IB_S_SingleOrDualCounts"] = 'single'
+                        }
+                    }
+                    console.log("IB_S_SingleOrDualCounts", trial_data["IB_S_SingleOrDualCounts"])
+                }
+
+                //This is where we'll push the objects once they're created for easy access.
+                var objectArray = []; //window.objectArray
+
+                //A special function to handle the IB response, because this code is a klugey mess
+                //and I don't know how to Javascript
+                function getIBResponse(event) {
+                    event.preventDefault();
+                    if (trialType == 'ib') {
+                        trial_data["t3_notice_ib"] = getRadioValue("prior", true);
+                    } else if (trialType == 'divid_attend') {
+                        trial_data["t4_notice_ib"] = getRadioValue("prior", true);
+                    }
+                    document.getElementById("priorib").style.visibility = 'hidden';
+                    document.removeEventListener("submit", getIBResponse, false);
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    document.getElementById("count").style.visibility = 'hidden';
+                    document.getElementById("count_circle").style.visibility = 'hidden';
+                    document.getElementById("count_square").style.visibility = 'hidden';
+                    document.getElementById("myButton").style.visibility = 'hidden';
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    trialType = trialSequence.shift();
+                    postTrialQs(trialType)
+                }
+
+                //This function saves the subject response after each trial.
+                function getResponse(event) {
+                    event.preventDefault();
+                    document.getElementById("count").style.visibility = 'hidden';
+                    document.getElementById("count_circle").style.visibility = 'hidden';
+                    document.getElementById("input_circle").style.visibility = 'hidden';
+                    document.getElementById("count_square").style.visibility = 'hidden';
+                    document.getElementById("input_square").style.visibility = 'hidden';
+                    document.getElementById("myButton").style.visibility = 'hidden';
+                    if (trialType == 'ib') {
+                        if (SingleOrDualCounts === 0) {
+                            trial_data["All_counts"].push(document.getElementById("count").value);
+                            document.getElementById("count").value = "";
+                        } else {
+                            var circleCount = parseInt(document.getElementById("count_circle").value, 10);
+                            var squareCount = parseInt(document.getElementById("count_square").value, 10);
+                            trial_data["circle_counts"].push(circleCount);
+                            trial_data["square_counts"].push(squareCount);
+                            var totalCount = circleCount + squareCount;
+                            trial_data["All_counts"].push(totalCount);
+                            document.getElementById("count_circle").value = "";
+                            document.getElementById("count_square").value = "";
+                        }
+                        console.log(trial_data["circle_counts"])
+                        console.log(trial_data["square_counts"])
+                        console.log(trial_data["All_counts"])
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        ibInst = "Did you notice anything extra during the last counting trial that wasn't there " +
+                            "in the previous trials?";
+                        var prioribButtons = document.querySelectorAll('#priorib button');
+                        prioribButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("priorib").style.visibility = 'visible';
+                        document.getElementById("taskFamiliarDescription").style.visibility = 'hidden';
+                        document.getElementById("myButton").style.visibility = 'visible';
+                        printAtWordWrap(ibInst, canvas.width / 2, canvas.height / 2 - 150, 30, canvas.width - 50);
+                        document.addEventListener("submit", getIBResponse, false);
+                    } else if (trialType == "divid_attend") {
+                        if (SingleOrDualCounts === 0) {
+                            trial_data["All_counts"].push(document.getElementById("count").value);
+                            document.getElementById("count").value = "";
+                        } else {
+                            var circleCount = parseInt(document.getElementById("count_circle").value, 10);
+                            var squareCount = parseInt(document.getElementById("count_square").value, 10);
+                            trial_data["circle_counts"].push(circleCount);
+                            trial_data["square_counts"].push(squareCount);
+                            var totalCount = circleCount + squareCount;
+                            trial_data["All_counts"].push(totalCount);
+                            document.getElementById("count_circle").value = "";
+                            document.getElementById("count_square").value = "";
+                        }
+                        console.log(trial_data["circle_counts"])
+                        console.log(trial_data["square_counts"])
+                        console.log(trial_data["All_counts"])
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        ibInst = "Did you notice an extra object on that trial?";
+                        var prioribButtons = document.querySelectorAll('#priorib button');
+                        prioribButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("priorib").style.visibility = 'visible';
+                        document.getElementById("taskFamiliarDescription").style.visibility = 'hidden';
+                        document.getElementById("myButton").style.visibility = 'visible';
+                        printAtWordWrap(ibInst, canvas.width / 2, canvas.height / 2 - 150, 30, canvas.width - 50);
+                        document.addEventListener("submit", getIBResponse, false);
+                    } else if (trialType == "shapeIB") {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        var inShapeResp = getRadioValue("ibRespShape", true);
+                        trial_data["shapeResponse"].push(inShapeResp);
+                        console.log("shapeResponse", trial_data["shapeResponse"]);
+                        document.getElementById("myButton").style.visibility = 'hidden';
+                        document.getElementById("ibShape").style.visibility = 'hidden';
+                        trialType = trialSequence.shift();
+                        postTrialQs(trialType)
+                    } else if (trialType == "LookForUEO") {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        trial_data["lookingForUEO"] = getRadioValue("lookFor", true);
+                        console.log("lookingForUEO", trial_data["lookingForUEO"]);
+                        document.getElementById("myButton").style.visibility = 'hidden';
+                        document.getElementById("lookFor").style.visibility = 'hidden';
+
+                        context.textAlign = "center";
+                        context.fillStyle = "#FFFFFF";
+
+                        if (SingleOrDualCounts === 0) {
+                            // First paragraph with instructions, using *asterisks* for bold text
+                            var instructions = "On the next screen, you will do the same task. Again, please count the total number of times any of the four " +
+                                attendedColor.toUpperCase() + " shapes bounce off of the sides of the rectangle. || " +
+                                "NEW REQUIREMENT: This time, you should *also look* for the presence of an extra object. Click to begin.";
+
+                            printAtWordWrap(instructions, canvas.width / 2, canvas.height / 2 - 150, 30, canvas.width - 50);
+                        } else {
+                            // Similar changes for the dual count case
+                            var instructions = "On the next screen, you will do the same task. Again, count the total number of times the 2 WHITE SQUARES bounce off the sides of the rectangle. " +
+                                "And, keep a separate count of the total number of times the 2 WHITE CIRCLES bounce off the sides of the rectangle. || " +
+                                "NEW REQUIREMENT: This time, you should *also look* for the presence of an extra object. Click to begin.";
+
+                            printAtWordWrap(instructions, canvas.width / 2, canvas.height / 2 - 150, 30, canvas.width - 50);
+                        }
+
+                        // Add the click listener
+                        document.addEventListener("click", onResponse, false);
+                    } else if (trialType == "LookForUEO_post") {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        trial_data["lookingForUEO_divid"] = getRadioValue("lookFor", true);
+                        console.log("lookingForUEO_divid", trial_data["lookingForUEO_divid"]);
+                        document.getElementById("myButton").style.visibility = 'hidden';
+                        document.getElementById("lookFor").style.visibility = 'hidden';
+                        trialType = trialSequence.shift();
+                        postTrialQs(trialType)
+                    } else if (trialType == 'no_ib') {
+                        if (SingleOrDualCounts === 0) {
+                            trial_data["All_counts"].push(document.getElementById("count").value);
+                            document.getElementById("count").value = "";
+                            instructions = "On the next screen, you will do the same task. Again, please count the total number of times " +
+                                "any of the four " + attendedColor.toUpperCase() + " shapes bounce off of the sides of the rectangle. Click to begin.";
+                        } else {
+                            var circleCount = parseInt(document.getElementById("count_circle").value, 10);
+                            var squareCount = parseInt(document.getElementById("count_square").value, 10);
+                            trial_data["circle_counts"].push(circleCount);
+                            trial_data["square_counts"].push(squareCount);
+                            var totalCount = circleCount + squareCount;
+                            trial_data["All_counts"].push(totalCount);
+                            document.getElementById("count_circle").value = "";
+                            document.getElementById("count_square").value = "";
+                            instructions = "On the next screen, you will do the same task. Again, count the total number of times the 2 WHITE SQUARES bounce off the sides of the rectangle. And, keep a separate count of the total number of times the 2 WHITE CIRCLES bounce off the sides of the rectangle. ||" + "Click to begin.";
+                        }
+                        console.log(trial_data["circle_counts"])
+                        console.log(trial_data["square_counts"])
+                        console.log(trial_data["All_counts"])
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        displayInstructions(instructions);
+                    } else if (trialType == "playback_pre") {
+                        demo_data["glitches"] = getRadioValue("prior", true);
+                        console.log("glitches", demo_data["glitches"]);
+                        skip();
+                    } else if (trialType == "playback") {
+                        playresp = document.getElementsByName("playback");
+                        for (i = 0; i < playresp.length; i++) {
+                            if (playresp[i].checked) {
+                                demo_data[playresp[i].value] = 1;
+                            }
+                        }
+                        demo_data["glitchesDescription"] = document.getElementById("play_text").value;
+                        document.getElementById("cboxes").style.visibility = "hidden";
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        onResponse (trialType == "end");
+                    } else if (trialType == "prior") {
+                        demo_data["taskFamiliar"] = getRadioValue("prior", true);
+                        demo_data["taskFamiliarDescription"] = document.getElementById("taskFamiliarDescription").value;
+                        document.getElementById("priorib").style.visibility = "hidden";
+                        document.getElementById("taskFamiliarDescription").style.visibility = "hidden";
+                        onResponse (trialType == "end");
+                    } else if (trialType == "vision") {
+                        demo_data["normal_vision"] = getRadioValue("normal_vision", true);
+                        document.getElementById("norvis").style.visibility = "hidden";
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        trialType = trialSequence.shift();
+                        postTrialQs(trialType)
+                    }
+                } //end of response function
+
+
+                //This function specifies the two stimuli types and handles their appearance and movement behavior.
+                function Stim(posX, posY, type, color, dX, dY, ux = false, direction) {
+                    colorDict = {
+                        //blue: '#0066ff', //1st: #0096ff; 2nd: #0066ff 3rd: #003fff
+                        background: '#7676A7',
+                        black: '#000000',
+                        grey: "#777777",
+                        white: '#FFFFFF',
+                    };
+                    this.speedSwitchTime = Date.now() + Math.floor((Math.random() * 1000)) //point at which object's velocity will change, in ms
+                    this.type = type;
+                    this.ux = ux;
+                    this.color = colorDict[color];
+                    this.colorName = color;
+                    this.thickness = barThickness;
+                    this.width = stimWidth;
+                    this.boxLeft = this.width / 2;
+                    this.boxRight = canvas.width - this.width / 2;
+                    this.boxTop = this.width / 2;
+                    this.boxBottom = canvas.height - this.width / 2;
+                    this.vel = Math.floor((Math.random() * 3) + 2);
+                    this.dY = dY;
+                    this.dX = dX;
+                    this.posX = posX;
+                    this.posY = posY;
+                    this.bounces = 0;
+                    this.bouncesCircle = 0;
+                    this.bouncesSquare = 0;
+                    //Define movement behavior
+                    if (this.ux) {
+                        if (direction === 1) {
+                            this.dX = -1
+                        } else {
+                            this.dX = 1
+                        }
+                        //this.dX = -1; //the circle moves right to left at a constant rate
+                        this.vel = 2;
+                        this.move = function () {
+                            this.posX += this.vel * this.dX;
+                        }
+                    } else {
+                        this.move = function () {
+                            //This suite checks to see if the object has collided with the
+                            //boundary walls, resets the position to inside the walls, and
+                            //changes the movement direction
+                            var bounced = false;
+                            if (this.posX > this.boxRight) {
+                                this.posX = this.boxRight;
+                                this.dX *= -1;
+                                this.bounces += 1;
+                                bounced = true;
+                            }
+                            if (this.posX < this.boxLeft) {
+                                this.posX = this.boxLeft;
+                                this.dX *= -1;
+                                this.bounces += 1;
+                                bounced = true;
+                            }
+                            if (this.posY > this.boxBottom) {
+                                this.posY = this.boxBottom;
+                                this.dY *= -1;
+                                this.bounces += 1;
+                                bounced = true;
+                            }
+                            if (this.posY < this.boxTop) {
+                                this.posY = this.boxTop;
+                                this.dY *= -1;
+                                this.bounces += 1;
+                                bounced = true;
+                            }
+                            if (bounced) {
+                                if (this.type === "circles") {
+                                    this.bouncesCircle += 1;
+                                } else if (this.type === "squares") {
+                                    this.bouncesSquare += 1;
+                                }
+                            }
+                            //Checks to see if it's time to switch the velocity of the object
+                            if (Date.now() >= this.speedSwitchTime) {
+                                //If so, pick the next switch time and pick a new velocity
+                                this.speedSwitchTime = Date.now() + Math.floor((Math.random() * 800));
+                                this.vel = Math.floor((Math.random() * 1.5) + 2);
+                                //This clause checks to see whether the object is inside the bounds
+                                //of the box, and then randomly decides whether to change the
+                                //vertical velocity, horizontal velocity, or both.
+                                if ((this.posY > this.boxBottom) && (this.posY < this.boxTop) &&
+                                    (this.posX > this.boxLeft) && (this.posX < this.boxRight)) {
+                                    this.dX *= [-1, 1][Math.floor((Math.random() * 2))]
+                                    this.dY *= [-1, 1][Math.floor((Math.random() * 2))]
+                                }
+                            }
+                            //Update position according to the velocity and movent direction
+                            this.posX += this.vel * this.dX;
+                            this.posY += this.vel * this.dY;
+                        } // end of move function
+                    }
+                    if (this.type == "circles") {
+                        this.draw = function () {
+                            context.save();
+                            context.beginPath();
+                            context.arc(this.posX, this.posY, this.width / 2, 0, 2 * Math.PI, false);
+                            context.fillStyle = this.color;
+                            context.fill();
+                            context.lineWidth = barThickness;
+                            context.strokeStyle = this.color;
+                            context.stroke();
+                            context.restore();
+                        }
+
+                    }
+                    else if (this.type == "squares") {
+                        this.draw = function() {
+                            context.save();
+                            context.fillStyle = this.color;
+                            context.fillRect(this.posX - this.width / 2, this.posY - this.width / 2, this.width, this.width);
+                            context.restore();
+                        }
+                    }
+                    else if (this.type == "cross") {
+                        this.draw = function() {
+                            context.save();
+                            context.beginPath();
+                            context.strokeStyle = this.color;
+                            context.lineWidth = this.width / 4;
+                            // Draw horizontal line
+                            context.moveTo(this.posX - this.width / 2, this.posY);
+                            context.lineTo(this.posX + this.width / 2, this.posY);
+                            // Draw vertical line
+                            context.moveTo(this.posX, this.posY - this.width / 2);
+                            context.lineTo(this.posX, this.posY + this.width / 2);
+                            context.stroke();
+                            context.restore();
+                        }
+                    }
+                    else if (this.type == "Z") {
+                        this.draw = function() {
+                            context.save();
+                            context.beginPath();
+                            context.strokeStyle = this.color;
+                            context.lineWidth = this.width / 4;
+                            // Draw the diagonal line first (slightly longer but less extended)
+                            context.moveTo(this.posX + this.width / 3.4, this.posY - this.width / 2.8);
+                            context.lineTo(this.posX - this.width / 3.4, this.posY + this.width / 2.8);
+                            context.stroke();
+                            // Draw horizontal lines on top of diagonal
+                            context.beginPath();
+                            // Top horizontal line - moved down and slightly shorter
+                            context.moveTo(this.posX - this.width / 2.5, this.posY - this.width / 2.5);
+                            context.lineTo(this.posX + this.width / 2.5, this.posY - this.width / 2.5);
+                            // Bottom horizontal line - moved up and slightly shorter
+                            context.moveTo(this.posX - this.width / 2.5, this.posY + this.width / 2.5);
+                            context.lineTo(this.posX + this.width / 2.5, this.posY + this.width / 2.5);
+                            context.stroke();
+                            context.restore();
+                        }
+                    }
+                    else if (this.type == "L") {
+                        this.draw = function() {
+                            context.save();
+                            context.beginPath();
+                            context.strokeStyle = this.color;
+                            context.lineWidth = this.width / 4;
+                            // Draw vertical line for the L
+                            context.moveTo(this.posX - this.width / 2, this.posY - this.width / 2.5);
+                            context.lineTo(this.posX - this.width / 2, this.posY + this.width / 2.5);
+                            // Draw horizontal line for the bottom of the L
+                            context.moveTo(this.posX - this.width / 1.6, this.posY + this.width / 2.5);
+                            context.lineTo(this.posX, this.posY + this.width / 2.5);
+                            context.stroke();
+                        }
+                    }
+                    else if (this.type == "T") {
+                        this.draw = function() {
+                            context.save();
+                            context.beginPath();
+                            context.strokeStyle = this.color;
+                            context.lineWidth = this.width / 4;
+                            // Draw horizontal line for the top of the T
+                            context.moveTo(this.posX - this.width / 2.5, this.posY - this.width / 2);
+                            context.lineTo(this.posX + this.width / 2.5, this.posY - this.width / 2);
+                            // Draw a longer vertical line for the T
+                            context.moveTo(this.posX, this.posY - this.width / 2);
+                            context.lineTo(this.posX, this.posY + this.width / 3); // Adjust the Y endpoint to be less negative
+                            context.stroke();
+                            context.restore();
+                        }
+                    }
+                    objectArray.push(this);
+                }
+
+                // end of class Stim
+
+                // This function initializes the stimuli (half checkerboards, half squares) to
+                // a random position in the box with random directional velocities.
+                //var level = 0
+                function createAndPlaceObjects(numObjects) {
+                    console.log('-----creating--------')
+                    objectArray = []
+                    //var shapes = ['circles', 'squares', 'circles', 'squares'];
+                    //shapes = shuffle(shapes);
+                    var attend_color = random1
+                    var attend_shape = random3
+                    var ignore_color = random2
+                    var ignore_shape = random4
+                    var colors = [attend_color, attend_color, ignore_color, ignore_color, attend_color, attend_color, ignore_color, ignore_color];
+                    var shapes = [attend_shape, attend_shape, attend_shape, attend_shape, ignore_shape, ignore_shape, ignore_shape, ignore_shape];
+                    console.log('attend_color:', attend_color)
+                    console.log('ignore_color:', ignore_color)
+                    console.log('attend_shape:', attend_shape)
+                    console.log('ignore_shape:', ignore_shape)
+
+                    for (i = 0; i < numObjects; i++) {
+                        // Adding a small extra margin (1.1 multiplier) to ensure shapes are fully visible
+                        var safeOffset = Math.ceil(stimWidth / 2 * 1.1);
+                        // Define safe boundaries
+                        var minX = safeOffset;
+                        var maxX = canvas.width - safeOffset;
+                        var minY = safeOffset;
+                        var maxY = canvas.height - safeOffset;
+
+                        // Generate random positions within the safe boundaries
+                        x = Math.floor(Math.random() * (maxX - minX + 1)) + minX;
+                        y = Math.floor(Math.random() * (maxY - minY + 1)) + minY;
+                        xDir = [-1, 1][Math.floor((Math.random() * 2))];
+                        yDir = [-1, 1][Math.floor((Math.random() * 2))];
+                        window[shapes[i] + colors[i]] = new Stim(x, y, shapes[i], colors[i], xDir, yDir);
+                    }
+                } // end of create and place function
+
+                /**
+                 * Gets the device pixel ratio for high-DPI display support
+                 */
+                function getDevicePixelRatio() {
+                    return window.devicePixelRatio || 1;
+                }
+
+                /**
+                 * Enhanced printAtWordWrap function with sharp text rendering and proper bold handling
+                 *
+                 * @param {string} text - The text to render with optional *bold* markup
+                 * @param {number} x - X position to start rendering
+                 * @param {number} y - Y position to start rendering
+                 * @param {number} lineHeight - Height between lines
+                 * @param {number} fitWidth - Maximum width before wrapping
+                 */
+                function printAtWordWrap(text, x, y, lineHeight, fitWidth) {
+                    // Save original context settings
+                    var originalFont = context.font;
+                    var originalAlign = context.textAlign;
+                    var originalSmoothingEnabled = context.imageSmoothingEnabled;
+
+                    // Enhance text rendering
+                    context.imageSmoothingEnabled = true;
+
+                    // Handle high-DPI displays
+                    var pixelRatio = getDevicePixelRatio();
+                    var needsRestore = false;
+
+                    if (pixelRatio > 1) {
+                        context.save();
+                        needsRestore = true;
+                    }
+
+                    // Extract font information for better control
+                    var fontParts = originalFont.split(' ');
+                    var fontSize = parseInt(originalFont.match(/\d+/)?.[0] || 20);
+                    var fontFamily = fontParts[fontParts.length - 1] || 'Tahoma';
+
+                    // Extract the bold sections with their positions
+                    var boldSections = [];
+                    var match;
+                    var boldPattern = /\*([^*]+)\*/g;
+
+                    while ((match = boldPattern.exec(text)) !== null) {
+                        boldSections.push({
+                            text: match[1],
+                            startPos: match.index,
+                            endPos: match.index + match[0].length
+                        });
+                    }
+
+                    // Remove the asterisks for normal text processing
+                    var plainText = text.replace(/\*([^*]+)\*/g, "$1");
+
+                    // Process according to fitWidth
+                    fitWidth = fitWidth || 0;
+                    if (fitWidth <= 0) {
+                        x = Math.round(x);
+                        y = Math.round(y);
+                        context.fillText(plainText, x, y);
+                        if (needsRestore) context.restore();
+                        context.imageSmoothingEnabled = originalSmoothingEnabled;
+                        return;
+                    }
+
+                    // Split into paragraphs and process each
+                    var paragraphs = plainText.split('||');
+                    var currentY = y;
+
+                    for (var p = 0; p < paragraphs.length; p++) {
+                        var paragraph = paragraphs[p].trim();
+                        var words = paragraph.split(' ');
+                        var lines = [];
+                        var currentLine = [];
+                        var currentWidth = 0;
+
+                        // Form lines that fit within the given width
+                        for (var i = 0; i < words.length; i++) {
+                            var word = words[i];
+                            var wordWidth = context.measureText(word + ' ').width;
+
+                            if (currentWidth + wordWidth <= fitWidth) {
+                                currentLine.push(word);
+                                currentWidth += wordWidth;
+                            } else {
+                                if (currentLine.length === 0) {
+                                    // Word is too long for the line, but we need to add it anyway
+                                    currentLine.push(word);
+                                    lines.push(currentLine);
+                                    currentLine = [];
+                                    currentWidth = 0;
+                                } else {
+                                    lines.push(currentLine);
+                                    currentLine = [word];
+                                    currentWidth = wordWidth;
+                                }
+                            }
+                        }
+
+                        // Add the last line if not empty
+                        if (currentLine.length > 0) {
+                            lines.push(currentLine);
+                        }
+
+                        // Now render each line with bold sections where needed
+                        for (var i = 0; i < lines.length; i++) {
+                            renderLine(lines[i], x, currentY + (lineHeight * i), boldSections);
+                        }
+
+                        // Move to the next paragraph with REDUCED spacing (changed from +2 to +1)
+                        currentY += lineHeight * (lines.length + 1);
+                    }
+
+                    // Restore DPI scaling if needed
+                    if (needsRestore) {
+                        context.restore();
+                    }
+
+                    // Restore original context settings
+                    context.font = originalFont;
+                    context.textAlign = originalAlign;
+                    context.imageSmoothingEnabled = originalSmoothingEnabled;
+
+                    /**
+                     * Render a single line with bold sections
+                     */
+                    function renderLine(wordArray, textX, textY, boldPhrases) {
+                        // Ensure pixel-perfect alignment
+                        textX = Math.round(textX);
+                        textY = Math.round(textY);
+
+                        var lineText = wordArray.join(' ');
+
+                        // First calculate the width for proper alignment
+                        context.font = fontSize + 'px ' + fontFamily;
+                        var lineWidth = context.measureText(lineText).width;
+
+                        // Calculate start position based on alignment
+                        var startX = textX;
+                        if (originalAlign === "center") {
+                            startX = textX - lineWidth / 2;
+                        } else if (originalAlign === "right") {
+                            startX = textX - lineWidth;
+                        }
+
+                        // Ensure pixel alignment for startX too
+                        startX = Math.round(startX);
+
+                        // First, we'll identify which parts of this line are bold
+                        var lineBoldSegments = [];
+
+                        for (var i = 0; i < boldPhrases.length; i++) {
+                            var boldPhrase = boldPhrases[i].text;
+                            if (lineText.includes(boldPhrase)) {
+                                lineBoldSegments.push(boldPhrase);
+                            }
+                        }
+
+                        // Set to left alignment for individual segment rendering
+                        var originalTextAlign = context.textAlign;
+                        context.textAlign = "left";
+
+                        if (lineBoldSegments.length === 0) {
+                            // No bold sections, render normally
+                            context.font = fontSize + 'px ' + fontFamily;
+                            context.fillText(lineText, startX, textY);
+                        } else {
+                            // There are bold sections to handle
+                            var segments = [];
+                            var currentPos = 0;
+
+                            // Process the line to identify bold and non-bold segments
+                            while (currentPos < lineText.length) {
+                                var nextBoldStart = lineText.length;
+                                var boldPhrase = null;
+
+                                // Find the next bold segment
+                                for (var i = 0; i < lineBoldSegments.length; i++) {
+                                    var phrase = lineBoldSegments[i];
+                                    var phrasePos = lineText.indexOf(phrase, currentPos);
+
+                                    if (phrasePos !== -1 && phrasePos < nextBoldStart) {
+                                        nextBoldStart = phrasePos;
+                                        boldPhrase = phrase;
+                                    }
+                                }
+
+                                // Add non-bold segment if any
+                                if (nextBoldStart > currentPos) {
+                                    segments.push({
+                                        text: lineText.substring(currentPos, nextBoldStart),
+                                        bold: false
+                                    });
+                                }
+
+                                // Add bold segment if found
+                                if (boldPhrase) {
+                                    segments.push({
+                                        text: boldPhrase,
+                                        bold: true
+                                    });
+                                    currentPos = nextBoldStart + boldPhrase.length;
+                                } else {
+                                    // No more bold segments
+                                    break;
+                                }
+                            }
+
+                            // Render all segments
+                            var currentX = startX;
+
+                            for (var i = 0; i < segments.length; i++) {
+                                var segment = segments[i];
+                                context.font = segment.bold
+                                    ? 'bold ' + fontSize + 'px ' + fontFamily
+                                    : fontSize + 'px ' + fontFamily;
+
+                                context.fillText(segment.text, currentX, textY);
+                                currentX += context.measureText(segment.text).width;
+                            }
+                        }
+
+                        // Restore text alignment
+                        context.textAlign = originalTextAlign;
+                    }
+                }
+
+                //Set up the animation callback
+                window.requestAnimationFrame = function (callback) {
+                    return window.setTimeout(callback, frameTime);
+                }
+                window.cancelAnimationFrame = window.clearTimeout;
+
+                let lastTime = 0;
+                let elapsed = 0;
+                let stopAnimation = false;
+
+                function updateAnimation(elapsed) {
+                    // Update the animation state based on the elapsed time
+                    currTime = new Date();
+                    trialTime = currTime - trialStartTime;
+
+                    if ((trialType == "ib" || trialType == "divid_attend") && (trialTime >= ibStart)) {
+                        unexObj.move(elapsed);
+                    }
+
+                    objectArray.forEach(function (element) {
+                        if (!element.ux) {
+                            element.move(elapsed);
+                        }
+                    });
+                }
+
+                function renderAnimation() {
+                    // Render the animation objects
+                    if ((trialType == "ib" || trialType == "divid_attend") && (trialTime >= ibStart)) {
+                        unexObj.draw();
+                    }
+
+                    objectArray.forEach(function (element) {
+                        if (!element.ux) {
+                            element.draw();
+                        }
+                    });
+                }
+
+                function runAnimLoop(timestamp) {
+                    if (stopAnimation) {
+                        // Animation has been stopped, so return without requesting the next frame
+                        return;
+                    }
+                    // Calculate the elapsed time since the last frame
+                    elapsed = timestamp - lastTime;
+                    lastTime = timestamp;
+
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    //fix.draw();
+
+                    // Update the animation based on the elapsed time
+                    updateAnimation(elapsed);
+
+                    // Render the animation
+                    renderAnimation();
+
+                    // Request the next animation frame
+                    requestAnimationFrame(runAnimLoop);
+                } //end of animation loop function
+
+                var lastDirection = 1;
+                var lastShape = null;
+                function singleTrial(trialType) {
+                    //fix = new Fixation(canvasFix.width / 2, canvasFix.height / 2 - 10, barThickness);
+                    if (trialType == 'ib') {
+                        var direction = Math.random() < 0.5 ? -1 : 1;
+                        trial_data["ibDirectionCrit"] = direction === 1 ? "RightToLeft" : "LeftToRight";
+                        //trial_data["ibDirectionCrit"] = direction;
+                        trial_data["ibShapeCrit"] = ibShape;
+                        lastDirection = direction;
+                        var startX = direction === -1 ? -30 : canvas.width + 30;
+                        console.log('startX:', startX)
+                        console.log('direction:', direction)
+                        console.log('ibShape:', ibShape)
+                        unexObj = new Stim(startX, canvas.height / 2, ibShape, ibColor, -1, 0, ux = true, direction);
+                    } else if (trialType == 'divid_attend') {
+                        var direction = lastDirection;
+                        var startX = direction === -1 ? -30 : canvas.width + 30;
+                        console.log('startX:', startX)
+                        console.log('direction:', direction)
+                        console.log('ibShape:', ibShape)
+                        unexObj = new Stim(startX, canvas.height / 2, ibShape, ibColor, -1, 0, ux = true, direction);
+                    }
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    lastShape = ibShape;
+                    //fix.draw()
+                    objectArray.forEach(function (element) {
+                        element.draw()
+                    });
+
+                    //Pause before starting the animation
+                    // setTimeout(function () {
+                    //     trialStartTime = Date.now();
+                    //     runAnimLoop(ib);
+                    // }, waitTime);
+
+                    setTimeout(function () {
+                        stopAnimation = false;
+                        trialStartTime = Date.now();
+                        requestAnimationFrame(runAnimLoop);
+                    }, waitTime);
+
+                    //Let the animation run, then handle response capture
+                    setTimeout(function () {
+                        // window.cancelAnimationFrame(anim);
+                        stopAnimation = true;
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        var trial_bounces = 0;
+                        var trial_bounces_circles = 0;
+                        var trial_bounces_squares = 0;
+                        console.log("SingleOrDualCounts:", SingleOrDualCounts);
+                        objectArray.forEach(function(object) {
+                            if (object.colorName === attendedColor) {
+                                trial_bounces_circles += object.bouncesCircle;
+                                trial_bounces_squares += object.bouncesSquare;
+                                trial_bounces += object.bounces;
+                                object.bouncesCircle = 0;
+                                object.bouncesSquare = 0;
+                                object.bounces = 0;
+                            }
+                        });
+
+                        if (trialType != 'full_attend' && SingleOrDualCounts === 0) {
+                            trial_data["All_bounces"].push(trial_bounces);
+                            console.log('All_bounces', trial_data["All_bounces"])
+                            printAtWordWrap("In the box below, please enter the total number of times the four " + attendedColor.toUpperCase() + " shapes bounced off the edges of the blue rectangle.", canvas.width / 2,
+                                canvas.height / 2 - 150, 30, canvas.width - 50);
+                            document.addEventListener("submit", getResponse, false);
+                            document.getElementById("count").style.visibility = 'visible';
+                            document.getElementById("myButton").style.visibility = 'visible';
+                        } else if (trialType != 'full_attend' && SingleOrDualCounts === 1) {
+                            trial_data["All_bounces"].push(trial_bounces)
+                            trial_data["Circle_bounces"].push(trial_bounces_circles);
+                            trial_data["Square_bounces"].push(trial_bounces_squares);
+                            console.log("Circle Bounces:", trial_data["Circle_bounces"]);
+                            console.log("Square Bounces:", trial_data["Square_bounces"]);
+                            console.log('All_bounces', trial_data["All_bounces"])
+                            printAtWordWrap("In the box below, please enter the total number of times the two " + attendedColor.toUpperCase() +
+                                " circles and squares (in each box below) bounced off the edges of the blue rectangle.", canvas.width / 2,
+                                canvas.height / 2 - 150, 30, canvas.width - 50);
+                            document.addEventListener("submit", getResponse, false);
+                            document.getElementById("count_circle").style.visibility = 'visible';
+                            document.getElementById("input_circle").style.visibility = 'visible';
+                            document.getElementById("count_square").style.visibility = 'visible';
+                            document.getElementById("input_square").style.visibility = 'visible';
+                            document.getElementById("myButton").style.visibility = 'visible';
+                        } else {
+                            fullinst = "Did you notice an extra object on that trial?";
+                            printAtWordWrap(fullinst, canvas.width / 2,
+                                canvas.height / 2 - 150, 30, canvas.width - 50);
+                            document.addEventListener("submit", getIBResponse, false);
+                            var prioribButtons = document.querySelectorAll('#priorib button');
+                            prioribButtons.forEach(function(button) {
+                                button.classList.remove('selected');
+                            });
+                            document.getElementById("priorib").style.visibility = 'visible';
+                            document.getElementById("taskFamiliarDescription").style.visibility = 'hidden';
+                            document.getElementById("myButton").style.visibility = 'visible';
+                        }
+                        //Set up the input event listeners and direct both to the same function
+                    }, trialDur);
+                } //end of single trial function
+
+                function calculate() {
+                    let bounces_t1 = trial_data.All_bounces[0]
+                    let bounces_t2 = trial_data.All_bounces[1]
+                    let bounces_t3 = trial_data.All_bounces[2]
+                    let bounces_t4 = trial_data.All_bounces[3]
+                    let count_t1 = parseInt(trial_data.All_counts[0])
+                    let count_t2 = parseInt(trial_data.All_counts[1])
+                    let count_t3 = parseInt(trial_data.All_counts[2])
+                    let count_t4 = parseInt(trial_data.All_counts[4])
+                    function validateAccuracy(accuracy) {
+                        if (accuracy > 100 || accuracy < 0) {
+                            return "N/A";
+                        } else {
+                            return parseFloat(accuracy.toFixed(2));
+                        }
+                    }
+                    let percent_t1 = ((Math.abs(count_t1 - bounces_t1)/bounces_t1))*100;
+                    let percent_t2 = ((Math.abs(count_t2 - bounces_t2)/bounces_t2))*100;
+                    let percent_t3 = ((Math.abs(count_t3 - bounces_t3)/bounces_t3))*100;
+                    let percent_t4 = ((Math.abs(count_t4 - bounces_t4)/bounces_t4))*100;
+                    let percent_t12 = (percent_t1 + percent_t2)/2;
+                    let t1_acc = validateAccuracy(100 - percent_t1);
+                    let t2_acc = validateAccuracy(100 - percent_t2);
+                    let t3_acc = validateAccuracy(100 - percent_t3);
+                    let t4_acc = validateAccuracy(100 - percent_t4);
+                    let t_12_acc = validateAccuracy(100 - percent_t12);
+                    trial_data["t1_acc"] = t1_acc;
+                    trial_data["t2_acc"] = t2_acc;
+                    trial_data["t3_acc"] = t3_acc;
+                    trial_data["t4_acc"] = t4_acc;
+                    trial_data["t_12_acc"] = t_12_acc;
+                }
+
+                function postTrialQs(info) {
+                    posx = canvas.width / 2;
+                    posy = canvas.height / 2 - 150;
+                    if (info == "playback_pre") {
+                        calculate();
+                        instr = "Did the animation play smoothly, with no obvious lagging or freezing?";
+                        var yesNoButtons = document.querySelectorAll('#YesNo button');
+                        yesNoButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("YesNo").style.visibility = 'visible';
+                    } else if (info == "playback") {
+                        instr = "Please describe the playback issues you experienced.";
+                        document.getElementById("cboxes").style.visibility = 'visible';
+                    } else if (info == "shapeIB") {
+                        instr = "There actually was an extra object. If you saw it, please select the object you saw. If you didn't see it, please guess.";
+                        var ibShapeButtons = document.querySelectorAll('#ibShape button');
+                        ibShapeButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("ibShape").style.visibility = 'visible';
+                    } else if (info == "directionIB") {
+                        instr = "What was the shape of the extra object? If you didn't see it, please guess.";
+                        document.getElementById("ibDirection").style.visibility = 'visible';
+                    } else if (info == "LookForUEO") {
+                        instr = "Did you *expect* an extra object to appear? That is, were you *deliberately looking* for an extra object while also counting the bounces?";
+                        var lookForButtons = document.querySelectorAll('#lookFor button');
+                        lookForButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("lookFor").style.visibility = 'visible';
+                    } else if (info == "LookForUEO_post") {
+                        instr = "Did you deliberately look for an extra object while also counting the bounces?";
+                        var lookForButtons = document.querySelectorAll('#lookFor button');
+                        lookForButtons.forEach(function(button) {
+                            button.classList.remove('selected');
+                        });
+                        document.getElementById("lookFor").style.visibility = 'visible';
+                    }
+                    printAtWordWrap(instr, posx, posy, 30, canvas.width - 50);
+                    document.addEventListener("submit", getResponse, false);
+                    document.getElementById("myButton").style.visibility = 'visible';
+                }
+
+                skip = function () {
+                    if (demo_data["glitches"] == 'No') {
+                        document.getElementById("YesNo").style.visibility = 'hidden';
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        trialType = trialSequence.shift();
+                        postTrialQs(trialType)
+                    } else if (demo_data["glitches"] == 'Yes') {
+                        document.getElementById("YesNo").style.visibility = 'hidden';
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        trialType = trialSequence.shift();
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                        onResponse (trialType == "end");
+                    }
+                }
+
+                displayInstructions = function (instructions) {
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    context.textAlign = "center";
+                    context.font = "20px Tahoma";
+                    context.fillStyle = "#FFFFFF";
+                    printAtWordWrap(instructions, canvas.width / 2,
+                        canvas.height / 2 - 150, 30, canvas.width - 50)
+                    document.addEventListener("click", onResponse, false)
+                }
+
+                displayInstructions2 = function (instructions) {
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    context.textAlign = "center";
+                    context.font = "20px Tahoma";
+                    context.fillStyle = "#FFFFFF";
+                    printAtWordWrap(instructions, canvas.width / 2,
+                        canvas.height / 2, 25, canvas.width - 50)
+                }
+
+                //This takes the response from the "click to continue" screens and
+                //advances to the next trial.
+                trialType = "start"; //"pre"
+                onResponse = function () {
+                    document.removeEventListener("click", onResponse, false)
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    trialType = trialSequence.shift();
+                    if (trialType == "pre") {
+                        inst = "In this task, 4 white shapes and 4 black shapes will appear inside this colored rectangle. After a moment, they will begin moving and bouncing off the sides of the rectangle. ||" + "Click anywhere to continue."
+                        displayInstructions(inst)
+                    } else if (trialType == 'start') {
+                        if (SingleOrDualCounts === 1) {
+                            inst = "You will be counting how often the WHITE CIRCLES and WHITE SQUARES bounce off the sides of the rectangle. Do not count bounces by the BLACK shapes.||" + "Critically, you need to keep TWO SEPARATE COUNTS, one for the WHITE CIRCLES and one for the WHITE SQUARES. That is, count the total number of times the 2 WHITE SQUARES bounce off the sides of the rectangle. And, keep a separate count of the total number of times the 2 WHITE CIRCLES bounce off the sides of the rectangle. You will be asked to report your total count for the white circles and your total count for the white squares separately. ||" + "Click anywhere to begin.";
+                        } else {
+                            inst = "Please count the total number of times any of the four " + attendedColor.toUpperCase() + " shapes bounce off " +
+                                "of the sides of the blue rectangle. Do not count bounces by the " +
+                                unattendedColor + " shapes. You will be asked to report your total count. " +
+                                "Click anywhere to begin.";
+                        }
+                        displayInstructions(inst)
+                    } else if (trialType == "draw1") {
+                        inst = "The total counts you reported were off by " + percent + "% from the actual counts, on average. " +
+                            "Anyone whose average accuracy was within 50% of the correct counts will be entered into the drawing for " +
+                            "a bonus payment. Anyone whose average counting accuracy was within 15% of the correct counts will receive two " +
+                            "entries in the drawing. Click to continue."
+                        displayInstructions(inst)
+                    } else if (trialType == "playback_pre" || trialType == "playback_options" || trialType == "playback" || trialType == "LookForUEO" || trialType == "LookForUEO_post" || trialType == "shapeIB") {
+                        postTrialQs(trialType)
+                    } else if (trialType != 'end') {
+                        createAndPlaceObjects(numObjects)
+                        singleTrial(trialType)
+                    } else {
+                        end()
+                    }
+                }
+
+
+                function main() {
+                    document.getElementById("all").style.visibility = "visible";
+                    assign_condition();
+                    get_condition();
+                    document.getElementById("count").style.visibility = 'hidden';
+                    document.getElementById("myButton").style.visibility = 'hidden';
+                    var initial_instructions = "In this task, 4 white shapes and 4 black shapes will appear inside this colored rectangle. After a moment, they will begin moving and bouncing off the sides of the rectangle. ||" + "Click anywhere to continue."
+
+                    displayInstructions(initial_instructions)
+                } // end of main
+
+                //function linebreak() {
+
+                //This function clears out hte display, writes the trial matrix to the hidden form, and
+                //passes the data to the PHP file to be written to the database.
+
+                // Helper function to handle undefined values
+                function getValueOrNA(array, index) {
+                    return (array && array[index] !== undefined) ? array[index] : 'NA';
+                }
+                function end() {
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    contextFix.clearRect(0, 0, canvas.width, canvas.height);
+                    context.fillText("Thank you for completing the task!", canvas.width / 2,
+                        canvas.height / 2);
+                    var debrief = "Click 'Continue' to proceed."
+                    displayInstructions2(debrief);
+                    DayEnd = formatDate(new Date());
+                    demo_data["DayEnd"] = DayEnd;
+                    var TimeEnd = new Date();
+                    duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+                    console.log(duration);
+
+                    document.task_data.subject_code.value = demo_data["subject_code"];
+                    document.task_data.IB_Sust_start.value = demo_data["Day"];
+                    document.task_data.IB_Sust_end.value = demo_data["DayEnd"];
+                    document.task_data.IB_Sust_duration.value = duration;
+                    document.task_data.IB_Sust_UnexpectedObjectRGB.value = IB_S_UnexpectedObjectRGB;
+                    document.task_data.IB_Sust_BackgroundRGB.value = IB_S_BackgroundRGB;
+                    document.task_data.IB_Sust_UnexpectedObjectDuration.value = trial_data["UnexpectedObjectDuration"];
+                    document.task_data.IB_Sust_SingleOrDualCounts.value = trial_data["IB_S_SingleOrDualCounts"];
+                    document.task_data.IB_Sust_AttendedColor.value = trial_data["attendedColor"];
+                    document.task_data.IB_Sust_IgnoredColor.value = trial_data["ignoredColor"];
+                    document.task_data.IB_Sust_unexpectedObject.value = trial_data["ibShapeCrit"];
+                    document.task_data.IB_Sust_UnexpectedObjectDirectionCrit.value = trial_data["ibDirectionCrit"];
+                    document.task_data.IB_Sust_UnexpectedObjectViolation.value = trial_data["ibShapeVio"];
+                    document.task_data.IB_Sust_UnexpectedObjectDirectionViolation.value = trial_data["ibDirectionVio"];
+                    document.task_data.IB_Sust_ChoiceArray.value = trial_data["ChoiceArray"];
+                    // For circle counts
+                    document.task_data.IB_Sust_1_countCircles.value = getValueOrNA(trial_data["circle_counts"], 0);
+                    document.task_data.IB_Sust_2_countCircles.value = getValueOrNA(trial_data["circle_counts"], 1);
+                    document.task_data.IB_Sust_3_countCircles.value = getValueOrNA(trial_data["circle_counts"], 2);
+                    document.task_data.IB_Sust_4_countCircles.value = getValueOrNA(trial_data["circle_counts"], 4);
+                    // For square counts
+                    document.task_data.IB_Sust_1_countSquares.value = getValueOrNA(trial_data["square_counts"], 0);
+                    document.task_data.IB_Sust_2_countSquares.value = getValueOrNA(trial_data["square_counts"], 1);
+                    document.task_data.IB_Sust_3_countSquares.value = getValueOrNA(trial_data["square_counts"], 2);
+                    document.task_data.IB_Sust_4_countSquares.value = getValueOrNA(trial_data["square_counts"], 4);
+                    document.task_data.IB_Sust_1_bouncesAll.value = trial_data["All_bounces"][0];
+                    document.task_data.IB_Sust_2_bouncesAll.value = trial_data["All_bounces"][1];
+                    document.task_data.IB_Sust_3_bouncesAll.value = trial_data["All_bounces"][2];
+                    document.task_data.IB_Sust_4_bouncesAll.value = trial_data["All_bounces"][3];
+                    // For circle bounces
+                    document.task_data.IB_Sust_1_bouncesCircles.value = getValueOrNA(trial_data["Circle_bounces"], 0);
+                    document.task_data.IB_Sust_2_bouncesCircles.value = getValueOrNA(trial_data["Circle_bounces"], 1);
+                    document.task_data.IB_Sust_3_bouncesCircles.value = getValueOrNA(trial_data["Circle_bounces"], 2);
+                    document.task_data.IB_Sust_4_bouncesCircles.value = getValueOrNA(trial_data["Circle_bounces"], 3);
+                    // For square bounces
+                    document.task_data.IB_Sust_1_bouncesSquares.value = getValueOrNA(trial_data["Square_bounces"], 0);
+                    document.task_data.IB_Sust_2_bouncesSquares.value = getValueOrNA(trial_data["Square_bounces"], 1);
+                    document.task_data.IB_Sust_3_bouncesSquares.value = getValueOrNA(trial_data["Square_bounces"], 2);
+                    document.task_data.IB_Sust_4_bouncesSquares.value = getValueOrNA(trial_data["Square_bounces"], 3);
+                    document.task_data.IB_Sust_1_countAll.value = trial_data["All_counts"][0];
+                    document.task_data.IB_Sust_2_countAll.value = trial_data["All_counts"][1];
+                    document.task_data.IB_Sust_3_countAll.value = trial_data["All_counts"][2];
+                    document.task_data.IB_Sust_4_countAll.value = trial_data["All_counts"][4];
+                    document.task_data.IB_Sust_1_accuracyAll.value = trial_data["t1_acc"];
+                    document.task_data.IB_Sust_2_accuracyAll.value = trial_data["t2_acc"];
+                    document.task_data.IB_Sust_3_accuracyAll.value = trial_data["t3_acc"];
+                    document.task_data.IB_Sust_4_accuracyAll.value = trial_data["t4_acc"];
+                    document.task_data.IB_Sust_accuracy_preCritical.value = trial_data["t_12_acc"];
+                    document.task_data.IB_Sust_3_noticeCritical.value = trial_data["t3_notice_ib"];
+                    document.task_data.IB_Sust_3_choiceCritical.value = trial_data["shapeResponse"][0];
+                    document.task_data.IB_Sust_devoteAttention_critical.value = trial_data["lookingForUEO"];
+                    document.task_data.IB_Sust_4_noticeDivided.value = trial_data["t4_notice_ib"];
+                    document.task_data.IB_Sust_4_choiceDivided.value = trial_data["shapeResponse"][1];
+                    document.task_data.IB_Sust_devoteAttention_divided.value = trial_data["lookingForUEO_divid"];
+                    document.task_data.IB_Sust_runSmoothly.value = demo_data["glitches"];
+                    document.task_data.IB_Sust_glitchesDescription.value = demo_data["glitchesDescription"];
+                    document.removeEventListener("submit", getResponse, false);
+                    document.removeEventListener("click", onResponse, false)
+                    document.getElementById("task_submit").style.visibility = 'visible';
+                    //document.getElementById("task_submit").addEventListener("submit");
+                } //end of end (har har)
+                main()
+            } // end of onload function
+        </script>
+        <input type="hidden" name="subject_code" value="">
+        <input type="hidden" name="IB_Sust_start" value="">
+        <input type="hidden" name="IB_Sust_end" value="">
+        <input type="hidden" name="IB_Sust_duration" value="">
+        <input type="hidden" name="IB_Sust_UnexpectedObjectRGB" value="">
+        <input type="hidden" name="IB_Sust_BackgroundRGB" value="">
+        <input type="hidden" name="IB_Sust_UnexpectedObjectDuration" value="">
+        <input type="hidden" name="IB_Sust_SingleOrDualCounts" value="">
+        <input type="hidden" name="IB_Sust_AttendedColor" value="">
+        <input type="hidden" name="IB_Sust_IgnoredColor" value="">
+        <input type="hidden" name="IB_Sust_unexpectedObject" value="">
+        <input type="hidden" name="IB_Sust_UnexpectedObjectDirectionCrit" value="">
+        <input type="hidden" name="IB_Sust_UnexpectedObjectViolation" value="">
+        <input type="hidden" name="IB_Sust_UnexpectedObjectDirectionViolation" value="">
+        <input type="hidden" name="IB_Sust_ChoiceArray" value="">
+        <input type="hidden" name="IB_Sust_1_bouncesCircles" value="">
+        <input type="hidden" name="IB_Sust_2_bouncesCircles" value="">
+        <input type="hidden" name="IB_Sust_3_bouncesCircles" value="">
+        <input type="hidden" name="IB_Sust_4_bouncesCircles" value="">
+        <input type="hidden" name="IB_Sust_1_bouncesSquares" value="">
+        <input type="hidden" name="IB_Sust_2_bouncesSquares" value="">
+        <input type="hidden" name="IB_Sust_3_bouncesSquares" value="">
+        <input type="hidden" name="IB_Sust_4_bouncesSquares" value="">
+        <input type="hidden" name="IB_Sust_1_bouncesAll" value="">
+        <input type="hidden" name="IB_Sust_2_bouncesAll" value="">
+        <input type="hidden" name="IB_Sust_3_bouncesAll" value="">
+        <input type="hidden" name="IB_Sust_4_bouncesAll" value="">
+        <input type="hidden" name="IB_Sust_1_countCircles" value="">
+        <input type="hidden" name="IB_Sust_2_countCircles" value="">
+        <input type="hidden" name="IB_Sust_3_countCircles" value="">
+        <input type="hidden" name="IB_Sust_4_countCircles" value="">
+        <input type="hidden" name="IB_Sust_1_countSquares" value="">
+        <input type="hidden" name="IB_Sust_2_countSquares" value="">
+        <input type="hidden" name="IB_Sust_3_countSquares" value="">
+        <input type="hidden" name="IB_Sust_4_countSquares" value="">
+        <input type="hidden" name="IB_Sust_1_countAll" value="">
+        <input type="hidden" name="IB_Sust_2_countAll" value="">
+        <input type="hidden" name="IB_Sust_3_countAll" value="">
+        <input type="hidden" name="IB_Sust_4_countAll" value="">
+        <input type="hidden" name="IB_Sust_1_accuracyAll" value="">
+        <input type="hidden" name="IB_Sust_2_accuracyAll" value="">
+        <input type="hidden" name="IB_Sust_3_accuracyAll" value="">
+        <input type="hidden" name="IB_Sust_4_accuracyAll" value="">
+        <input type="hidden" name="IB_Sust_accuracy_preCritical" value="">
+        <input type="hidden" name="IB_Sust_3_noticeCritical" value="">
+        <input type="hidden" name="IB_Sust_3_choiceCritical" value="">
+        <input type="hidden" name="IB_Sust_devoteAttention_critical" value="">
+        <input type="hidden" name="IB_Sust_4_noticeDivided" value="">
+        <input type="hidden" name="IB_Sust_4_choiceDivided" value="">
+        <input type="hidden" name="IB_Sust_devoteAttention_divided" value="">
+        <input type="hidden" name="IB_Sust_runSmoothly" value="">
+        <input type="hidden" name="IB_Sust_glitchesDescription" value="">
+        <button type="submit" id="task_submit" style="position:absolute; z-index:3; top:520px; left:305px; font-size:20px;">Continue</button>
+    </fieldset>
+    </form>
+</div>
+</body>
+</html>
