@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-plugin-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code');
+  }
+
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  let duration;
+  let TimeStart = new Date();
+  console.log(TimeStart)
+
+  let participantResponses = {};
+  let currentSection = 0;
+
+  // Session persistence - simplified approach
+  const SESSION_KEY = 'ffoci_session_' + (subjectCode || 'default');
+
+  function saveToSession() {
+    const sessionData = {
+      responses: participantResponses,
+      startTime: TimeStart.getTime(),
+      currentSection: currentSection,
+      lastSaved: Date.now()
+    };
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      console.log('Session saved - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+    } catch (e) {
+      console.log('Session save failed:', e);
+    }
+  }
+
+  function loadFromSession() {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const sessionData = JSON.parse(saved);
+        participantResponses = sessionData.responses || {};
+        currentSection = sessionData.currentSection || 0;
+        TimeStart = new Date(sessionData.startTime || Date.now());
+        console.log('Session loaded - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+        return true;
+      }
+    } catch (e) {
+      console.log('Session load failed:', e);
+    }
+    return false;
+  }
+
+  function clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      console.log('Session cleared');
+    } catch (e) {
+      console.log('Session clear failed:', e);
+    }
+  }
+
+  // Prevent page navigation
+  let isSubmitting = false;
+
+  window.addEventListener('beforeunload', function(e) {
+    if (!isSubmitting) {
+      saveToSession();
+      e.preventDefault();
+      e.returnValue = 'Your progress will be lost if you leave this page. Are you sure?';
+      return e.returnValue;
+    }
+  });
+
+  // Prevent back button
+  history.pushState(null, null, location.href);
+  window.addEventListener('popstate', function () {
+    if (!isSubmitting) {
+      saveToSession();
+      history.pushState(null, null, location.href);
+    }
+  });
+
+  // Load any existing session
+  const hasSession = loadFromSession();
+
+  // Function to handle the end of each survey block
+  function handleSurveyFinish(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        participantResponses[questionName] = responses[questionName];
+      }
+    }
+    participantResponses['participant_id'] = '123';
+    participantResponses['FFOCI_nItemsTotal'] = '30';
+    participantResponses['FFOCI_ItemsToReverse'] = '007, 008, 009, 019, 020, 021';
+    participantResponses['FFOCI_Perfectionism'] = '007, 019, 031, 043, 055, 067, 079, 091, 103, 115';
+    participantResponses['FFOCI_Punctiliousness'] = '009, 021, 033, 045, 057, 069, 081, 093, 105, 117';
+    participantResponses['FFOCI_Fastidiousness'] = '008, 020, 032, 044, 056, 068, 080, 092, 104, 116';
+    participantResponses['FFOCI_duration'] = duration;
+    participantResponses['subject_code'] = subjectCode;
+
+    saveToSession();
+  }
+
+  let instruction = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="font-size:20px;">In this task, you will answer some questions about yourself. <br><br>Please respond to each question by selecting the option that best describes you. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+    on_finish: function() {
+      currentSection = 1;
+      saveToSession();
+    }
+  }
+
+  let FFOIC1 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I sometimes sacrifice the quality of my work, just to get it finished.",
+        name: 'FFOCI_007',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I don\'t spend much time on organizing or ordering things.",
+        name: 'FFOCI_008',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "When I really think about it, I guess I don\'t take my responsibilities seriously enough.",
+        name: 'FFOCI_009',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I don\'t get bogged down in making sure everything is just right.",
+        name: 'FFOCI_019',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I am not a particularly methodical or well\-organized person.",
+        name: 'FFOCI_020',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: " I don\'t always take the rules and regulations too seriously.",
+        name: 'FFOCI_021',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "People often think I work too long and hard to make things perfect.",
+        name: 'FFOCI_031',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "The smallest details are often the most important.",
+        name: 'FFOCI_032',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "Following the rules is always important, even if I\'m playing a game by myself.",
+        name: 'FFOCI_033',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "Doing something \"good enough\" is not OK for me.",
+        name: 'FFOCI_043',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 2;
+      saveToSession();
+    }
+  }
+
+  let FFOIC2 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I take such good care of my things that they last much longer than they probably should.",
+        name: 'FFOCI_044',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I have such a strong sense of duty that I sometimes become over-committed.",
+        name: 'FFOCI_045',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I strive for perfection, even on what other people might call minor details.",
+        name: 'FFOCI_055',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "Other people have said that I\'m extremely detail oriented, almost to a fault.",
+        name: 'FFOCI_056',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "Knowing the proper etiquette in all situations is very important for me.",
+        name: 'FFOCI_057',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I take great pride in the quality of my work.",
+        name: 'FFOCI_067',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I take excellent care of things so they\'ll stay in perfect condition.",
+        name: 'FFOCI_068',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "People often suggest I take my responsibilities too seriously.",
+        name: 'FFOCI_069',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I\'m something of a perfectionist.",
+        name: 'FFOCI_079',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I am a very methodical person; perhaps too much so.",
+        name: 'FFOCI_080',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 3;
+      saveToSession();
+    }
+  }
+
+  let FFOIC3 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "Respond to this item with 'Disagree strongly'",
+        name: 'FFOCI_AC',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I can be pretty exacting when it comes to duty and honor.",
+        name: 'FFOCI_081',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I take great pride in being efficient and effective.",
+        name: 'FFOCI_091',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I need to consider every little detail.",
+        name: 'FFOCI_092',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I firmly believe that you should always play strictly by the rules.",
+        name: 'FFOCI_093',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I like my work to be flawless and unblemished.",
+        name: 'FFOCI_103',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I probably spend more time than is needed organizing and ordering things.",
+        name: 'FFOCI_104',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I take pride in being someone who is reliable, no matter what happens.",
+        name: 'FFOCI_105',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I think it\'s terribly important to get things just right.",
+        name: 'FFOCI_115',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "I always make sure that my work is very well planned and organized.",
+        name: 'FFOCI_116',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+      {
+        prompt: "Some persons suggest I can be excessive in my emphasis on being proper and moral.",
+        name: 'FFOCI_117',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+        required: true,
+      },
+    ],
+    on_finish: function (data) {
+      let TimeEnd = new Date();
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      handleSurveyFinish(data);
+      currentSection = 4;
+      saveToSession();
+    }
+  }
+
+  let end = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">Press "Continue" to proceed to the next task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Continue",
+    show_clickable_nav: true
+  }
+
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  // Build timeline based on current section
+  if (hasSession && currentSection > 0) {
+    console.log('Resuming from section:', currentSection);
+    let resumeMessage = {
+      type: jsPsychInstructions,
+      pages: function(){
+        let sectionNames = ['', 'first section', 'second section', 'third section', 'final section'];
+        let pageOne = '<div style="font-size:20px;">Welcome back!<br><br>Your progress has been restored.<br><br>You will continue from the ' + sectionNames[currentSection] + '.<br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: "Continue",
+      show_clickable_nav: true
+    };
+    timeline.push(resumeMessage);
+
+    if (currentSection === 1) {
+      timeline.push(FFOIC1, FFOIC2, FFOIC3, end);
+    } else if (currentSection === 2) {
+      timeline.push(FFOIC2, FFOIC3, end);
+    } else if (currentSection === 3) {
+      timeline.push(FFOIC3, end);
+    } else if (currentSection >= 4) {
+      timeline.push(end);
+    }
+  } else {
+    timeline.push(instruction, FFOIC1, FFOIC2, FFOIC3, end);
+  }
+
+  let jsPsych = initJsPsych({
+    on_finish() {
+      isSubmitting = true;
+    }
+  });
+
+  jsPsych.run(timeline);
+
+</script>
+</html>

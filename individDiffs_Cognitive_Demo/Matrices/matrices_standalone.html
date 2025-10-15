@@ -1,0 +1,258 @@
+<html lang="English">
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/plugin-survey-multi-choice.js"></script>
+  <script src="jspsych/plugin-survey-text.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+
+  //----- GLOBAL VARIABLES -----------------------------------------
+  const answerKey = [3, 1, 3, 4, 3, 4, 3, 4, 5, 4, 1, 1];
+  let n_trial = 0;
+  let correctAnswer = answerKey[0];
+  let n_question = 1;
+  let currentTrialcorrect = false;
+  let PracticeResponseTimeSequence = [];
+  let PracticeResponseSequence = [];
+  let PracticeAccuracySequence = [];
+  let ResponseTimeSequence = [];
+  let ResponseSequence = [];
+  let AccuracySequence = [];
+  let totalPracticeTrials;
+  let totalTrials;
+  //----------------------------------------------------------------------
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  function formatDate(date) {
+    // Get the date string in the CST timezone
+    const options = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // Format the date using Intl.DateTimeFormat
+    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+    const [datePart, timePart] = cstDateString.split(', ');
+    const [month, day, year] = datePart.split('/');
+
+    return `${year}/${month}/${day} ${timePart}`;
+  }
+
+  let Start = formatDate(new Date());
+  let End;
+  let duration;
+  let TimeStart = new Date();
+  console.log(Start)
+
+  let instruction1 = {
+    type: jsPsychInstructions,
+    pages: function(){
+      pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">In this task, you will solve puzzles by finding the best piece to complete an image that will appear at the center of the screen. For each puzzle, there will be 5 possible answer options, and one of them will be the correct one. To make your selection, you\'ll use the corresponding <b>number key on your keyboard</b>. If you aren\'t able to figure out the correct answer, make your best guess. The task will begin with 4 practice examples. <br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Begin",
+    show_clickable_nav: true,
+  }
+
+  let instruction2 = {
+    type: jsPsychInstructions,
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">That concludes the practice portion of this test<br><br><br>From here on, the test will get more difficult. ' +
+              '<br> You should always choose the image piece that best completes the pattern. <br> There is only one correct answer for each test item. ' +
+              '<br><br> You have as long as you like to choose your response, <br> but please try to answer as quickly as possible without sacrificing accuracy. ' +
+              '<br> If you don\'t konw the answer, take your best guess. <br><br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Start",
+    show_clickable_nav: true,
+  }
+
+  let practiceTrial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      let question_image = `Images/${n_question}.png`;
+      // instructions at the top
+      let html = `<div style='text-align: center; margin-bottom: 20px;'>
+                  <p style='font-size: 40px; font-weight: bold;'>Practice:</p>
+                  <p>Use your keyboard to choose the image piece that best completes the pattern.</p>
+                  <p>${n_question} of 4</p></div>`;
+      //question image
+      html += `<div style='text-align: center; margin-bottom: 60px;'>
+                  <img src="${question_image}" style="max-width: 35%; height: auto;"></div>`;
+      html += "<div style='display: flex; justify-content: center; gap: 30px;'>";
+      //options images
+      for (let i = 1; i <= 5; i++) {
+        let option_image = `Images/${n_question}-${i}.png`; // Image path for each option
+        html += `<div style='text-align: center;'><img src='${option_image}' style='max-width: 90px;'></div>`;
+      }
+      return html;
+    },
+    choices: ['1','2','3','4','5'],
+    on_finish: function (data) {
+      let correctAnswer = answerKey[n_trial];
+      console.log(data.response);
+      console.log(correctAnswer);
+      currentTrialcorrect = parseInt(data.response) === correctAnswer;
+      PracticeResponseTimeSequence.push(data.rt);
+      PracticeResponseSequence.push(data.response);
+      PracticeAccuracySequence.push(currentTrialcorrect ? 1 : 0);
+      totalPracticeTrials = PracticeAccuracySequence.reduce(function(accumulator, currentValue) {
+        return accumulator + currentValue;
+      }, 0);
+      jsPsych.data.get().addToLast({
+        trialType: "practice",
+        TMB_Matrix_PracticeResponseTimeSequence: PracticeResponseTimeSequence,
+        TMB_Matrix_PracticeResponseSequence: PracticeResponseSequence,
+        TMB_Matrix_PracticeAccuracySequence: PracticeAccuracySequence,
+        TMB_Matrix_totalPracticeTrials: totalPracticeTrials
+      });
+    }
+  }
+
+  let feedback = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function(){
+      let text = "";
+      if (currentTrialcorrect){
+        text += '<div style="font-size:35px; color:rgb(0 220 0)"><b>This is correct. Please press SPACE to continue.<br><br><br><br></div>'
+      } else {
+        text += '<div style="font-size:35px; color:rgb(240 0 0)"><b>This is incorrect. Please press SPACE to see the pictures again.<br><br><br><br></div>'
+      }
+      return text
+    }
+  }
+
+  let repeatIfWrong = {
+    timeline: [practiceTrial, feedback],
+    conditional_function: function(){
+      if (currentTrialcorrect) {
+        n_trial += 1;
+        n_question += 1;
+        return false; // Do not repeat if the response was correct
+      } else {
+        return false; // Repeat if the response was incorrect
+      }
+    }
+  }
+
+  let normalTrials = {
+    type: jsPsychHtmlKeyboardResponse,
+    //n_trial: function() { return n_trial; },
+    stimulus: function () {
+      let question_image = `Images/${n_question}.png`;
+      // instructions at the top
+      let html = `<div style='text-align: center; margin-bottom: 20px;'>
+                  <p>${n_question - 4} of 8</p></div>`;
+      //question image
+      html += `<div style='text-align: center; margin-bottom: 60px;'>
+                  <img src="${question_image}" style="max-width: 35%; height: auto;"></div>`;
+      html += "<div style='display: flex; justify-content: center; gap: 30px;'>";
+      //options images
+      for (let i = 1; i <= 5; i++) {
+        let option_image = `Images/${n_question}-${i}.png`; // Image path for each option
+        html += `<div style='text-align: center;'><img src='${option_image}' style='max-width: 90px;'></div>`;
+      }
+      return html;
+    },
+    choices: ['1','2','3','4','5'],
+    on_finish: function (data) {
+      let correctAnswer = answerKey[n_trial];
+      console.log(data.response);
+      console.log(correctAnswer);
+      currentTrialcorrect = parseInt(data.response) === correctAnswer;
+      n_trial += 1;
+      n_question += 1;
+      ResponseTimeSequence.push(data.rt);
+      ResponseSequence.push(data.response);
+      AccuracySequence.push(currentTrialcorrect ? 1 : 0);
+      totalTrials = AccuracySequence.reduce(function(accumulator, currentValue) {
+        return accumulator + currentValue;
+      }, 0);
+      let TimeEnd = new Date();
+      End = formatDate(new Date());
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      jsPsych.data.get().addToLast({
+        TMB_Matrix_start: Start,
+        TMB_Matrix_end: End,
+        TMB_Matrix_duration: duration,
+        trialType: "normal",
+        TMB_Matrix_ResponseTimeSequence: ResponseTimeSequence,
+        TMB_Matrix_ResponseSequence: ResponseSequence,
+        TMB_Matrix_AccuracySequence: AccuracySequence,
+        TMB_Matrix_totalTrials: totalTrials,
+        subject_code: subjectCode
+      });
+    }
+  }
+
+  let datalog = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: "<div style='text-align: center;'>Saving your data...</div>",
+    trial_duration: 100,
+    on_finish: function (data) {
+      var trialData = jsPsych.data.get();
+      var participantData = {};
+
+      // Accumulate data for each trial into the participantData object
+      trialData.trials.forEach(row => {
+        for (var key in row) {
+          if (row.hasOwnProperty(key)) {
+            // Use the key as the column name and assign the value from the row
+            participantData[key] = row[key];
+          }
+        }
+      });
+      console.log("Data won't be recorded:", JSON.stringify(participantData, null, 2)); // Pretty print JSON
+    }
+  }
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  let practice = {
+    timeline: [practiceTrial, feedback, repeatIfWrong],
+    loop_function: function() {
+      return n_trial < 4; // Loop the entire block until two different trials are shown
+    }
+  }
+
+  let normal = {
+    timeline: [normalTrials],
+    loop_function: function() {
+      return n_trial < 12; // Loop the entire block until two different trials are shown
+    }
+  }
+
+  let jsPsych = initJsPsych({
+  });
+
+  timeline.push(instruction1, practice, instruction2, normal, datalog);
+
+  jsPsych.run(timeline);
+
+  //--------------data collection-----------------
+
+</script>
+</html>

@@ -1,0 +1,568 @@
+<html>
+<head>
+  <title>Demo</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-plugin-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+</head>
+<body></body>
+<script>
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  let duration;
+  let TimeStart = new Date();
+  console.log(TimeStart)
+
+  let participantResponses = {};
+  let currentSection = 0; // Track which section we're on
+
+  // Session persistence - simplified approach
+  const SESSION_KEY = 'bf2_session_' + (subjectCode || 'default');
+
+  function saveToSession() {
+    const sessionData = {
+      responses: participantResponses,
+      startTime: TimeStart.getTime(),
+      currentSection: currentSection,
+      lastSaved: Date.now()
+    };
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+      console.log('Session saved - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+    } catch (e) {
+      console.log('Session save failed:', e);
+    }
+  }
+
+  function loadFromSession() {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) {
+        const sessionData = JSON.parse(saved);
+        participantResponses = sessionData.responses || {};
+        currentSection = sessionData.currentSection || 0;
+        TimeStart = new Date(sessionData.startTime || Date.now());
+        console.log('Session loaded - section:', currentSection, 'responses:', Object.keys(participantResponses).length);
+        return true;
+      }
+    } catch (e) {
+      console.log('Session load failed:', e);
+    }
+    return false;
+  }
+
+  function clearSession() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      console.log('Session cleared');
+    } catch (e) {
+      console.log('Session clear failed:', e);
+    }
+  }
+
+  // Prevent page navigation
+  let isSubmitting = false;
+
+  window.addEventListener('beforeunload', function(e) {
+    if (!isSubmitting) {
+      saveToSession();
+      e.preventDefault();
+      e.returnValue = 'Your progress will be lost if you leave this page. Are you sure?';
+      return e.returnValue;
+    }
+  });
+
+  // Prevent back button
+  history.pushState(null, null, location.href);
+  window.addEventListener('popstate', function () {
+    if (!isSubmitting) {
+      saveToSession();
+      history.pushState(null, null, location.href);
+    }
+  });
+
+  // Load any existing session
+  const hasSession = loadFromSession();
+
+  // Function to handle the end of each survey block
+  function handleSurveyFinish(data) {
+    let responses = data.response;
+    for (let questionName in responses) {
+      if (responses.hasOwnProperty(questionName)) {
+        // Store each response in the participantResponses object
+        participantResponses[questionName] = responses[questionName];
+      }
+    }
+    participantResponses['BF2_nItemsTotal'] = '60';
+    participantResponses['BF2_ItemsToReverse'] = '03, 04, 05, 08, 09, 11, 12, 16, 17, 22, 23, 24, 25, 26, 28, 29, 30, 31, 36, 37, 42, 44, 45, 47, 48, 49, 50, 51, 55, 58';
+    participantResponses['BF2_Conscientiousness'] = '03, 08, 13, 18, 23, 28, 33, 38, 43, 48, 53, 58';
+    participantResponses['BF2_Openness'] = '05, 10, 15, 20, 25, 30, 35, 40, 45R, 50, 55, 60';
+    participantResponses['BF2_Neuroticism'] = '04, 09, 14, 19, 24, 29, 34, 39, 44, 49, 54, 59';
+    participantResponses['BF2_Extraversion'] = '01, 06, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56';
+    participantResponses['BF2_Agreeableness'] = '02, 07, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57';
+    participantResponses['BF2_duration'] = duration;
+    participantResponses['subject_code'] = subjectCode;
+
+    // Save after each section completion
+    saveToSession();
+  }
+
+  let instruction = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="font-size:20px;">In this task, you will answer some questions about yourself. <br><br>You will see statements with a number of characteristics that may or may not apply to you. <br><br>For example, do you agree that you are someone who likes to spend time with others? <br><br>Please select the option that indicates the extent to which you agree or disagree with that statement. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+    on_finish: function() {
+      currentSection = 1;
+      saveToSession();
+    }
+  }
+
+  let BFI1 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I am someone who is outgoing, sociable.",
+        name: 'BF2_01',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is compassionate, has a soft heart.",
+        name: 'BF2_02',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who tends to be disorganized.",
+        name: 'BF2_03',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is relaxed, handles stress well.",
+        name: 'BF2_04',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has few artistic interests.",
+        name: 'BF2_05',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has an assertive personality.",
+        name: 'BF2_06',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is respectful, treats others with respect.",
+        name: 'BF2_07',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who tends to be lazy.",
+        name: 'BF2_08',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who stays optimistic after experiencing a setback.",
+        name: 'BF2_09',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is curious about many different things.",
+        name: 'BF2_10',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 2;
+      saveToSession();
+    }
+  }
+
+  let BFI2 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I am someone who rarely feels excited or eager.",
+        name: 'BF2_11',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who tends to find fault with others.",
+        name: 'BF2_12',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is dependable, steady.",
+        name: 'BF2_13',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is moody, has up and down mood swings.",
+        name: 'BF2_14',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is inventive, finds clever ways to do things.",
+        name: 'BF2_15',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who tends to be quiet.",
+        name: 'BF2_16',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who feels little sympathy for others.",
+        name: 'BF2_17',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is systematic, likes to keep things in order.",
+        name: 'BF2_18',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who can be tense.",
+        name: 'BF2_19',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is fascinated by art, music, or literature.",
+        name: 'BF2_20',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 3;
+      saveToSession();
+    }
+  }
+
+  let BFI3 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I am someone who is dominant, acts as a leader.",
+        name: 'BF2_21',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who starts arguments with others.",
+        name: 'BF2_22',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has difficulty getting started on tasks.",
+        name: 'BF2_23',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who feels secure, comfortable with self.",
+        name: 'BF2_24',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who avoids intellectual, philosophical discussions.",
+        name: 'BF2_25',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is less active than other people.",
+        name: 'BF2_26',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has a forgiving nature.",
+        name: 'BF2_27',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who can be somewhat careless.",
+        name: 'BF2_28',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is emotionally stable, not easily upset.",
+        name: 'BF2_29',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has little creativity.",
+        name: 'BF2_30',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 4;
+      saveToSession();
+    }
+  }
+
+  let BFI4 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I am someone who is sometimes shy, introverted.",
+        name: 'BF2_31',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is helpful and unselfish with others.",
+        name: 'BF2_32',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who keeps things neat and tidy.",
+        name: 'BF2_33',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who worries a lot.",
+        name: 'BF2_34',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who values art and beauty.",
+        name: 'BF2_35',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who finds it hard to influence people.",
+        name: 'BF2_36',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is sometimes rude to others.",
+        name: 'BF2_37',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is efficient, gets things done.",
+        name: 'BF2_38',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who often feels sad.",
+        name: 'BF2_39',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is complex, a deep thinker.",
+        name: 'BF2_40',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 5;
+      saveToSession();
+    }
+  }
+
+  let BFI5 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "I am someone who is full of energy.",
+        name: 'BF2_41',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is suspicious of others\' intentions.",
+        name: 'BF2_42',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is reliable, can always be counted on.",
+        name: 'BF2_43',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who keeps their emotions under control.",
+        name: 'BF2_44',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has difficulty imagining things.",
+        name: 'BF2_45',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is talkative.",
+        name: 'BF2_46',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who can be cold and uncaring.",
+        name: 'BF2_47',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who leaves a mess, doesn\'t clean up.",
+        name: 'BF2_48',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who rarely feels anxious or afraid.",
+        name: 'BF2_49',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who thinks poetry and plays are boring.",
+        name: 'BF2_50',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      handleSurveyFinish(data);
+      currentSection = 6;
+      saveToSession();
+    }
+  }
+
+  let BFI6 = {
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "Respond to this item with 'Agree strongly'",
+        name: 'BF2_AC',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who prefers to have others take charge.",
+        name: 'BF2_51',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is polite, courteous to others.",
+        name: 'BF2_52',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is persistent, works until the task is finished.",
+        name: 'BF2_53',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who tends to feel depressed, blue.",
+        name: 'BF2_54',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who has little interest in abstract ideas.",
+        name: 'BF2_55',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who shows a lot of enthusiasm.",
+        name: 'BF2_56',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who assumes the best about people.",
+        name: 'BF2_57',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who sometimes behaves irresponsibly.",
+        name: 'BF2_58',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is temperamental, gets emotional easily.",
+        name: 'BF2_59',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+      {
+        prompt: "I am someone who is original, comes up with new ideas.",
+        name: 'BF2_60',
+        options: ['Disagree strongly', 'Disagree a little', 'Neutral; no opinion', 'Agree a little', 'Agree strongly'],
+      },
+    ],
+    on_finish: function (data) {
+      let TimeEnd = new Date();
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+      handleSurveyFinish(data);
+      currentSection = 7;
+      saveToSession();
+    }
+  }
+
+  let end = {
+    type: jsPsychInstructions,
+    pages: function(){
+      let pageOne = '<div style="width: 60%; margin: auto; text-align: center; font-size: 20px; line-height: 1.6;">Press "Continue" to proceed to the next task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Continue",
+    show_clickable_nav: true
+  }
+
+  //--------------timeline variables-----------------
+  let timeline = [];
+
+  // Build timeline based on current section
+  if (hasSession && currentSection > 0) {
+    console.log('Resuming from section:', currentSection);
+    // Show a restoration message
+    let sectionNames = ['', 'first section', 'second section', 'third section', 'fourth section', 'fifth section', 'sixth section', 'final section'];
+    let resumeMessage = {
+      type: jsPsychInstructions,
+      pages: function(){
+        let pageOne = '<div style="font-size:20px;">Welcome back!<br><br>Your progress has been restored.<br><br>You will continue from the ' + sectionNames[currentSection] + '.<br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: "Continue",
+      show_clickable_nav: true
+    };
+    timeline.push(resumeMessage);
+
+    // Add remaining sections based on currentSection
+    if (currentSection === 1) {
+      timeline.push(BFI1, BFI2, BFI3, BFI4, BFI5, BFI6, end);
+    } else if (currentSection === 2) {
+      timeline.push(BFI2, BFI3, BFI4, BFI5, BFI6, end);
+    } else if (currentSection === 3) {
+      timeline.push(BFI3, BFI4, BFI5, BFI6, end);
+    } else if (currentSection === 4) {
+      timeline.push(BFI4, BFI5, BFI6, end);
+    } else if (currentSection === 5) {
+      timeline.push(BFI5, BFI6, end);
+    } else if (currentSection === 6) {
+      timeline.push(BFI6, end);
+    } else if (currentSection >= 7) {
+      timeline.push(end);
+    }
+  } else {
+    // Start from beginning
+    timeline.push(instruction, BFI1, BFI2, BFI3, BFI4, BFI5, BFI6, end);
+  }
+
+  let jsPsych = initJsPsych({
+    on_finish() {
+      isSubmitting = true;
+    }
+  });
+
+  jsPsych.run(timeline);
+
+</script>
+</html>

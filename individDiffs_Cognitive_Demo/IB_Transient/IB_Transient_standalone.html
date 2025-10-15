@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Line Judgments</title>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            bottom: 0px;
+            right: 0px;
+            margin: 0 auto;
+            cursor: none;
+        }
+        #crossDisplay {
+            background-color: transparent;
+            z-index: 0;
+            margin: 0 auto;
+        }
+        #maskDisplay{
+            background-color: transparent;
+            z-index: 3;
+            margin: 0 auto;
+        }
+        #fixDisplay {
+            background-color: transparent;
+            z-index: 1;
+            margin: 0 auto;
+        }
+        #bgDisplay {
+            background-color: transparent;
+            z-index: 2;
+            margin: 0 auto;
+        }
+        #trialScreen {
+            font-family: 'Arial';
+            font-size: 25px;
+            display: none;
+            margin: 0 auto;
+            width: 800px;
+            height:600px;
+        }
+        #instructionScreen {
+            font-family: 'Arial';
+            font-size: 25px;
+            text-align: center;
+            display: none;
+            width: 800px;
+            margin: 0 auto;
+        }
+        #fullAttentionInst {
+            font-family: 'Arial';
+            font-size: 25px;
+            text-align: center;
+            display: none;
+            width: 900px;
+            margin: 0 auto;
+        }
+        #debrief {
+            font-family: 'Arial';
+            font-size: 18px;
+            text-align: center;
+            display: none;
+            width: 800px;
+            margin: 0 auto;
+        }
+        #line_judgment, #IB_Tran_noticeCritical, #IB_Tran_devoteAttention_critical, #IB_Tran_devoteAttention_divided, #face_question,
+        #square_notice1, #face_question1, #face_question_yes1,
+        #playback_pre, #playback {
+            position: absolute;
+            display: none;
+            top: 200px;
+            left: 0px;
+            bottom: 0px;
+            right: 0px;
+            width: 800px;
+            height: 400px;
+            margin: 0 auto
+        }
+        #face_question span[face-type]{
+            margin: 10px;
+        }
+        #face_question1 span[face-type1]{
+            margin: 10px;
+        }
+        label > input {
+            visibility: hidden; /* Makes input not-clickable */
+            position: absolute;
+        }
+        label > input + img {
+            cursor:pointer;
+            border:3px solid transparent;
+        }
+        label > input:checked + img {
+            border:3px solid #777777;
+        }
+        .nextButton {
+            background-color: #f0f0f0;
+            font-size: 50px;
+            width: 400px;
+            padding: 15px;
+            margin: 0 auto;
+        }
+        .nextButton:hover {
+            background-color: #555555;
+            cursor: pointer;
+        }
+        fieldset {
+            border: 0px;
+            font-family: "Arial", sans-serif;
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            bottom: 0px;
+            right:0px;
+            width:500px;
+            margin:0 auto;
+        }
+        form {
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            bottom: 0px;
+            right: 0px;
+            width:800px;
+            margin:0 auto;
+        }
+
+        /* Box-style radio buttons */
+        .radio-box-container {
+            display: flex;
+            justify-content: flex-start;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .radio-box {
+            display: block;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .radio-box input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        .radio-box-checkmark {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            width: 100px;
+            background-color: #f8f8f8;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .radio-box:hover .radio-box-checkmark {
+            background-color: #e0e0e0;
+            border-color: #aaa;
+        }
+
+        .radio-box input[type="radio"]:checked + .radio-box-checkmark {
+            background-color: #777777;
+            color: white;
+            border-color: #555555;
+        }
+
+        .radio-box input[type="radio"]:focus + .radio-box-checkmark {
+            box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.3); /* Changed from rgba(199, 0, 57, 0.3) */
+        }
+
+        /* Submit button styles */
+        .submit-button {
+            background-color: #f0f0f0;
+            color: black;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        .submit-button:hover {
+            background-color: #555555;
+        }
+
+        .submit-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.3); /* Changed from rgba(199, 0, 57, 0.3) */
+        }
+        /* Shape selection boxes */
+        .shape-box-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            width: 100%;
+        }
+        .shape-box {
+            position: relative;
+            cursor: pointer;
+            flex: 0 0 auto;
+            width: 120px;
+            margin-bottom: 15px;
+        }
+        .shape-box input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+        .shape-box-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            background-color: #f8f8f8;
+            transition: all 0.2s ease;
+            height: 100px;
+        }
+        .shape-box:hover .shape-box-content {
+            background-color: #e0e0e0;
+            border-color: #aaa;
+        }
+        .shape-box input[type="radio"]:checked + .shape-box-content {
+            background-color: #f0f0f0;
+            border-color: #f0f0f0;
+            box-shadow: 0 0 0 3px rgba(76, 139, 245, 1);
+        }
+        .shape-box .face {
+            margin: 10px auto;
+        }
+        .shape-box-content svg.L-shape {
+            transform: translateX(-10px); /* Move 10px to the left */
+        }
+        .radio-box {
+            margin: 0 20px;
+        }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+
+</head>
+<body style="font-family:'Arial'">
+
+<div id="line_judgment">
+    <form id="line_judgment_task" name="line_judgment_task" align='center'>
+        <fieldset align='left' style="border:0 none;align-content: left">
+            <div style="text-align: center; margin-bottom: 30px;">
+                Which arm of the cross was longer?
+            </div>
+
+            <div style="display: flex; justify-content: space-around; width: 80%; margin: 0 auto;">
+                <label class="radio-box" style="position: relative;">
+                    <input type="radio" name="line_judgment_ans" value="vert" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 1;"/>
+                    <span class="radio-box-checkmark"> | </span>
+                </label>
+
+                <label class="radio-box" style="position: relative;">
+                    <input type="radio" name="line_judgment_ans" value="horiz" style="position: absolute; opacity: 0; width: 100%; height: 100%; top: 0; left: 0; cursor: pointer; z-index: 1;"/>
+                    <span class="radio-box-checkmark"> &mdash; </span>
+                </label>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('line_judgment', 'line_judgment_task')">Continue</button>
+                <p id="line_judgment_task_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+            </div>
+        </fieldset>
+    </form>
+</div>
+
+<div id="IB_Tran_noticeCritical">
+    <form id="word_survey" name="word_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Did you notice anything during the last line-judgment trial that wasn't there in the previous trials?<br /><br />
+        <div class="radio-box-container">
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_noticeCritical" value="No"/>
+                <span class="radio-box-checkmark">No</span>
+            </label>
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_noticeCritical" value="Yes"/>
+                <span class="radio-box-checkmark">Yes</span>
+            </label>
+        </div>
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('IB_Tran_noticeCritical', 'word_survey')">Continue</button>
+        <p id="word_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="IB_Tran_devoteAttention_critical">
+    <form id="lookFor_survey" name="lookFor_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Did you <b>expect</b> an extra object to appear? That is, were you <b>deliberately looking</b> for an extra object while also judging which line was longer? <br /><br />
+        <div class="radio-box-container">
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_devoteAttention_critical" value="No"/>
+                <span class="radio-box-checkmark">NO</span>
+            </label>
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_devoteAttention_critical" value="Yes"/>
+                <span class="radio-box-checkmark">YES</span>
+            </label>
+        </div>
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('IB_Tran_devoteAttention_critical', 'lookFor_survey')">Continue</button>
+        <p id="lookFor_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="face_question">
+    <form id="face_survey" name="face_survey" align='center'><fieldset align='left' style="border:0 none;">
+        There actually was an extra object. If you saw it, please select the object you saw. If you didn't see it, please guess. <br /><br/>
+
+        <div class="shape-box-container">
+            <label class="shape-box">
+                <input type="radio" name="face_question" value="cross"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80">
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                        <line x1="10" y1="40" x2="70" y2="40" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question" value="Z"/>
+                <div class="shape-box-content">
+                    <svg width="80" height="80" class="Z-shape">
+                        <line x1="10" y1="10" x2="70" y2="10" stroke="black" stroke-width="3"></line>
+                        <line x1="70" y1="10" x2="10" y2="70" stroke="black" stroke-width="3"></line>
+                        <line x1="10" y1="70" x2="70" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question" value="L"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80" class="L-shape">
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                        <line x1="38.5" y1="70" x2="70" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question" value="T"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80">
+                        <line x1="10" y1="10" x2="70" y2="10" stroke="black" stroke-width="3"></line>
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+        </div>
+
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('face_question', 'face_survey')">Continue</button>
+        <p id="face_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="square_notice1">
+    <form id="square_survey" name="square_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Did you notice an extra object on that trial? <br /><br />
+        <div class="radio-box-container">
+            <label class="radio-box">
+                <input type="radio" name="square_notice1" value="No"/>
+                <span class="radio-box-checkmark">No</span>
+            </label>
+            <label class="radio-box">
+                <input type="radio" name="square_notice1" value="Yes"/>
+                <span class="radio-box-checkmark">Yes</span>
+            </label>
+        </div>
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('square_notice1', 'square_survey')">Continue</button>
+        <p id="square_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="face_question_yes1">
+    <form id="face_survey_yes1" name="face_survey_yes1" align='center'><fieldset align='left' style="border:0 none;">
+        Describe what you saw: <br /><br />
+        <input type="text" name="id_face_survey_yes1" id="id_face_survey_yes1" value="" style="width: 600px; height: 20px">
+        <br /><br /><br />
+        <button type="button" id="submitButton" align='center' onclick="check_fields('face_question_yes1', 'face_survey_yes1')">Continue</button>
+        <p id="face_survey_yes1_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="face_question1">
+    <form id="face_survey1" name="face_survey1" align='center'><fieldset align='left' style="border:0 none;">
+        There actually was an extra object. If you saw it, please select the object you saw. If you didn't see it, please guess. <br /><br/>
+
+        <div class="shape-box-container">
+            <label class="shape-box">
+                <input type="radio" name="face_question1" value="cross"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80">
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                        <line x1="10" y1="40" x2="70" y2="40" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question1" value="Z"/>
+                <div class="shape-box-content">
+                    <svg width="80" height="80" class="Z-shape">
+                        <line x1="10" y1="10" x2="70" y2="10" stroke="black" stroke-width="3"></line>
+                        <line x1="70" y1="10" x2="10" y2="70" stroke="black" stroke-width="3"></line> <!-- Fixed diagonal alignment -->
+                        <line x1="10" y1="70" x2="70" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question1" value="L"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80" class="L-shape">
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                        <line x1="38.5" y1="70" x2="70" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+
+            <label class="shape-box">
+                <input type="radio" name="face_question1" value="T"/>
+                <div class="shape-box-content">
+                    <svg height="80" width="80">
+                        <line x1="10" y1="10" x2="70" y2="10" stroke="black" stroke-width="3"></line>
+                        <line x1="40" y1="10" x2="40" y2="70" stroke="black" stroke-width="3"></line>
+                    </svg>
+                </div>
+            </label>
+        </div>
+
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('face_question1', 'face_survey1')">Continue</button>
+        <p id="face_survey1_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="IB_Tran_devoteAttention_divided">
+    <form id="lookFor_survey" name="lookFor_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Did you deliberately look for an extra object while also judging which line was longer? <br /><br />
+        <div class="radio-box-container">
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_devoteAttention_divided" value="No"/>
+                <span class="radio-box-checkmark">No</span>
+            </label>
+            <label class="radio-box">
+                <input type="radio" name="IB_Tran_devoteAttention_divided" value="Yes"/>
+                <span class="radio-box-checkmark">Yes</span>
+            </label>
+        </div>
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('IB_Tran_devoteAttention_divided', 'lookFor_survey')">Continue</button>
+        <p id="lookFor_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="playback_pre">
+    <form id="playback_pre_survey" name="playback_pre_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Did the animation play smoothly, with no obvious lagging or freezing? <br /><br />
+        <div class="radio-box-container">
+            <label class="radio-box">
+                <input type="radio" name="playback_pre" value="No"/>
+                <span class="radio-box-checkmark">No</span>
+            </label>
+            <label class="radio-box">
+                <input type="radio" name="playback_pre" value="Yes"/>
+                <span class="radio-box-checkmark">Yes</span>
+            </label>
+        </div>
+        <button type="button" id="submitButton" class="submit-button" align='center' onclick="check_fields('playback_pre', 'playback_pre_survey')">Continue</button>
+        <p id="playback_pre_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="playback">
+    <form id="playback_survey" name="playback_survey" align='center'><fieldset align='left' style="border:0 none;">
+        Please describe the playback issues you experienced: <br /><br />
+        <input type="text" name="id_playback" id="id_playback" value="" style="width: 600px; height: 20px">
+        <br /><br /><br />
+        <button type="button" id="submitButton" align='center' onclick="check_fields('playback', 'playback_survey')">Continue</button>
+        <p id="playback_survey_error_msg" style="color:red; font-weight:bold; text-align: center"></p>
+    </fieldset>
+    </form>
+</div>
+
+<div id="instructionScreen">
+    <br /> <br /> <br />
+    In this task, you will make a difficult judgment about an image.
+    <br /> <br />
+    A black dot will appear and you should focus your eyes on it. Shortly after that, a cross will flash briefly somewhere on screen.
+    <br /><br />
+    Your task will be to judge which arm of the cross (the top-to-bottom arm or the left-to-right arm) is longer.
+    <br /><br />
+    Do the best you can!
+    <br /> <br />
+    <div id="startButton" class="nextButton">Begin</div>
+</div>
+<div id="mobileDetected" style="display: none; font-size: 18">
+    <br /> <br /> <br />
+    We have detected a screen that is too small to run this experiment.
+    <br /> <br />
+    If you are on a mobile device, please re-load this page on a larger device.
+</div>
+<div id="trialScreen" width=800 height=600>
+    <canvas id="crossDisplay" width=800 height=600 style="position:absolute"></canvas>
+    <canvas id="fixDisplay" width=800 height=600 style="position:absolute"></canvas>
+    <canvas id='bgDisplay' width=800 height=600 style="position:absolute;text-align:center"></canvas>
+    <canvas id='maskDisplay' width=800 height=600 style="position:absolute;text-align:center"></canvas>
+</div>
+<div id="fullAttentionInst" align='center' style="display: none">
+    <p id="thanks" style="font-family:arial;top:200px">
+        <br /> <br /> <br />
+        Continue to concentrate on the dot in the center and to judge which arm of the cross is longer. <br><br>NEW REQUIREMENT: This time, you should <b>also look</b> for the presence of an additional object.<br /><br />
+    </p>
+    <div id="contButton" class="nextButton" onclick="store_data('fullAttentionInst')"> Continue </div>
+</div>
+
+<div id='debrief' style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+    <p style="font-family:arial">
+        When you are ready, click 'Continue' to proceed to the next task.
+    </p>
+    <form id="data_form" name="data_form" action="data.php" method="post" style='position:relative'><fieldset>
+        <img src="face_study_mask.png" id="maskimg" hidden>
+        <input type="hidden" name="subject_code" value="">
+        <input type="hidden" name="IB_Tran_start" value="">
+        <input type="hidden" name="IB_Tran_end" value="">
+        <input type="hidden" name="IB_Tran_duration" value="" />
+        <input type="hidden" name="IB_Tran_durationCross" value="" />
+        <input type="hidden" name="IB_Tran_durationMask" value="" />
+        <input type="hidden" name="IB_Tran_crossDistanceFromFixation" value="" />
+        <input type="hidden" name="IB_Tran_objectDistanceFromFixation" value="" />
+        <input type="hidden" name="IB_Tran_1_crossLocation" value="" />
+        <input type="hidden" name="IB_Tran_1_crossHor" value="" />
+        <input type="hidden" name="IB_Tran_1_crossVert" value="" />
+        <input type="hidden" name="IB_Tran_2_crossLocation" value="" />
+        <input type="hidden" name="IB_Tran_2_crossHor" value="" />
+        <input type="hidden" name="IB_Tran_2_crossVert" value="" />
+        <input type="hidden" name="IB_Tran_3_crossLocation" value="" />
+        <input type="hidden" name="IB_Tran_3_crossHor" value="" />
+        <input type="hidden" name="IB_Tran_3_crossVert" value="" />
+        <input type="hidden" name="IB_Tran_4_crossLocation" value="" />
+        <input type="hidden" name="IB_Tran_4_crossHor" value="" />
+        <input type="hidden" name="IB_Tran_4_crossVert" value="" />
+        <input type="hidden" name="IB_Tran_5_crossLocation" value="" />
+        <input type="hidden" name="IB_Tran_5_crossHor" value="" />
+        <input type="hidden" name="IB_Tran_5_crossVert" value="" />
+        <input type="hidden" name="IB_Tran_1_actual" value="" />
+        <input type="hidden" name="IB_Tran_2_actual" value="" />
+        <input type="hidden" name="IB_Tran_3_actual" value="" />
+        <input type="hidden" name="IB_Tran_4_actual" value="" />
+        <input type="hidden" name="IB_Tran_5_actual" value="" />
+        <input type="hidden" name="IB_Tran_1_resp" value="" />
+        <input type="hidden" name="IB_Tran_2_resp" value="" />
+        <input type="hidden" name="IB_Tran_3_resp" value="" />
+        <input type="hidden" name="IB_Tran_4_resp" value="" />
+        <input type="hidden" name="IB_Tran_5_resp" value="" />
+        <input type="hidden" name="IB_Tran_1_acc" value="" />
+        <input type="hidden" name="IB_Tran_2_acc" value="" />
+        <input type="hidden" name="IB_Tran_3_acc" value="" />
+        <input type="hidden" name="IB_Tran_4_acc" value="" />
+        <input type="hidden" name="IB_Tran_5_acc" value="" />
+        <input type="hidden" name="IB_Tran_unexpectedObject" value="" />
+        <input type="hidden" name="IB_Tran_noticeCritical" value="" />
+        <input type="hidden" name="IB_Tran_choiceCritical" value="" />
+        <input type="hidden" name="IB_Tran_choiceArrayCritical" value="" />
+        <input type="hidden" name="IB_Tran_devoteAttention_critical" value="" />
+        <input type="hidden" name="IB_Tran_devoteAttention_divided" value="" />
+        <input type="hidden" name="IB_Tran_noticeDivided" value="" />
+        <input type="hidden" name="IB_Tran_choiceDivided" value="" />
+        <input type="hidden" name="IB_Tran_choiceArrayDivided" value="" />
+        <input type="submit" id="submit" value='Continue'>
+    </fieldset>
+    </form>
+</div>
+
+<style class="faces_style">
+    .face {
+        display: inline-block;
+    }
+</style>
+
+<div class="svg_images" hidden>
+
+    <div class="face cross">
+        <svg height="100" width="100">
+            <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="3"></line> <!-- Vertical line -->
+            <line x1="10" y1="50" x2="90" y2="50" stroke="black" stroke-width="3"></line> <!-- Horizontal line -->
+        </svg>
+    </div>
+
+    <div class="face Z">
+        <svg width="100" height="100">
+            <line x1="10" y1="10" x2="90" y2="10" stroke="black" stroke-width="3"></line>
+            <line x1="87" y1="9" x2="13.3" y2="90" stroke="black" stroke-width="3"></line>
+            <line x1="10" y1="90" x2="90" y2="90" stroke="black" stroke-width="3"></line>
+        </svg>
+    </div>
+
+    <div class="face L">
+        <svg height="100" width="100">
+            <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="3"></line> <!-- Vertical line -->
+            <line x1="48.5" y1="90" x2="90" y2="90" stroke="black" stroke-width="3"></line> <!-- Horizontal line -->
+        </svg>
+    </div>
+
+    <div class="face T">
+        <svg height="100" width="100">
+            <line x1="10" y1="10" x2="90" y2="10" stroke="black" stroke-width="3"></line> <!-- Horizontal line -->
+            <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="3"></line> <!-- Vertical line -->
+        </svg>
+    </div>
+</div>
+
+<script>
+    //global parameters documentation
+    function getSubjectFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+    }
+
+    // Retrieve the subject_code value
+    const subjectCode = getSubjectFromUrl();
+    console.log("subject_code value from URL:", subjectCode);
+    document.data_form.subject_code.value = subjectCode;
+
+    Day = formatDate(new Date());
+    console.log(Day);
+    document.data_form.IB_Tran_start.value = Day;
+    TimeStart = new Date();
+    //Randomize IB type
+    var ib_list = [
+        'cross',
+        'Z',
+        'L',
+        'T'
+    ]
+    var face = shuffle(ib_list)[0]
+    document.data_form.IB_Tran_unexpectedObject.value = face;
+    console.log('IB_Tran_unexpectedObject', face);
+    function run() {
+
+        function Trial() {
+            this.init = function() {
+                this.trialOver = false;
+                this.trialScreen = document.getElementById("trialScreen");
+                if (trialsCompleted == 0) {
+                    this.instructionScreen = document.getElementById("instructionScreen");
+                }
+                fixCanvas = document.getElementById("fixDisplay");
+                crossCanvas = document.getElementById("crossDisplay");
+                maskCanvas = document.getElementById("maskDisplay");
+                bgCanvas = document.getElementById("bgDisplay");
+                return true;
+            }
+
+            this.start = function() {
+                cross_loc = Math.floor(Math.random()*4);
+
+                if (trialsCompleted == 0) {
+                    this.instructionScreen.style.display = "none";
+                }
+                this.trialScreen.style.display = "block";
+                this.fixDur = 1500;
+                //document.data_form.fixDur.value = this.fixDur;
+                this.displayDur = 200;
+                document.data_form.IB_Tran_durationCross.value = this.displayDur;
+                this.maskDur = 500;
+                document.data_form.IB_Tran_durationMask.value = this.maskDur;
+
+                drawFixation();
+                drawBorder();
+                setTimeout(clearDisplay, this.fixDur + this.displayDur + this.maskDur, bgCanvas);
+                if (trialParams[trialsCompleted] == 'cross') {
+                    setTimeout(clearDisplay, this.fixDur, fixCanvas);
+                    setTimeout(drawCross, this.fixDur, cross_loc);
+                    setTimeout(clearDisplay, this.fixDur + this.displayDur, crossCanvas);
+                    setTimeout(drawMask, this.fixDur + this.displayDur);
+                }
+                else if (trialParams[trialsCompleted] == 'ib') {
+                    setTimeout(clearDisplay, this.fixDur, fixCanvas);
+                    setTimeout(drawSquare, this.fixDur, cross_loc);
+                    setTimeout(clearDisplay, this.fixDur + this.displayDur, crossCanvas);
+                    setTimeout(drawMask, this.fixDur + this.displayDur);
+                }
+                setTimeout(clearDisplay, this.fixDur + this.displayDur, crossCanvas);
+                setTimeout(clearDisplay, this.fixDur + this.displayDur, fixCanvas);
+                setTimeout(clearDisplay, this.fixDur + this.displayDur + this.maskDur, maskCanvas);
+                setTimeout(this.end, this.fixDur + this.displayDur + this.maskDur);
+            }
+            this.end = function() {
+                if (trialsCompleted < 4) {
+                    document.getElementById("trialScreen").style.display = 'none';
+                    document.getElementById("line_judgment").style.display = 'block';
+                    document.getElementById("line_judgment").style.visibility = 'visible';
+                } else if (trialsCompleted == 4) {
+                    document.getElementById("trialScreen").style.display = 'none';
+                    document.getElementById("line_judgment").style.display = 'block';
+                    document.getElementById("line_judgment").style.visibility = 'visible';
+                }
+            }
+        } //end of trial class
+
+        //////// PRIMARY FUNCTIONS ////////
+
+        function init() {
+            trial = new Trial;
+            if (trial.init()) {
+                if (trialsCompleted == 0) {
+                    trial.instructionScreen.style.display = "block";
+                    document.getElementById("startButton").onclick = function() {trial.start()};
+                } else {
+                    trial.start();
+                }
+            }
+        }
+
+        init();
+
+    } //end of function run()
+
+    /**
+     * Randomize array element order in-place.
+     * Using Durstenfeld shuffle algorithm.
+     */
+    function shuffle(array) {
+        for (var i = array.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+        return array;
+    }
+
+    function getRadioValue(name) {
+        var group = document.getElementsByName(name);
+        for (var i=0;i<group.length;i++) {
+            if (group[i].checked) {
+                return group[i].value;
+            }
+        }
+        return '';
+    }
+
+    function formatDate(date) {
+        // Get the date string in the CST timezone
+        const options = {
+            timeZone: 'America/Chicago',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+
+        // Format the date using Intl.DateTimeFormat
+        const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+        // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+        const [datePart, timePart] = cstDateString.split(', ');
+        const [month, day, year] = datePart.split('/');
+
+        return `${year}/${month}/${day} ${timePart}`;
+    }
+
+    function check_fields(div_id, form_name) {
+        var error_count = 0;
+        var form = document.getElementById(form_name);
+        for (i=0; i<form.elements.length; i++) {
+            if (((form.elements[i].value == "") ||
+                    (form.elements[i].value == null)) &&
+                ((form.elements[i].type != "button") &&
+                    (form.elements[i].type != "fieldset") &&
+                    (form.elements[i].type != undefined) &&
+                    (form.elements[i].type != "text") &&
+                    (form.elements[i].type != "hidden"))) {
+                error_count++;
+            }
+            if (form.elements[i].type == "radio") {
+                var radioChecked = false;
+                var radios = document.getElementsByName(form.elements[i].name);
+                for (r=0; r<radios.length; r++) {
+                    if (radios[r].checked) {
+                        radioChecked = true;
+                    }
+                }
+                if (!radioChecked) {
+                    error_count++;
+                }
+            }
+            if (form.elements[i].type == 'text' & div_id != 'prior') {
+                if (form.elements[i].value.length < 1) {
+                    error_count++;
+                }
+            }
+            if (form.elements[i].value == "NA") {
+                error_count++;
+            }
+        }
+        if (error_count >= 1) {
+            document.getElementById(form_name+"_error_msg").innerHTML = "One or" +
+                " more questions are unanswered. Please answer these" +
+                " questions and then click continue.";
+        } else {
+            document.getElementById(form_name+"_error_msg").innerHTML = "";
+            store_data(div_id);
+        }
+    }
+    function face_fn() {
+        const shapeTypes = ['cross', 'Z', 'L', 'T'];
+        const shuffledOrder = shuffle([...shapeTypes]);
+        document.data_form.IB_Tran_choiceArrayCritical.value = shuffledOrder.join(',');
+        console.log('IB_Tran_choiceArrayCritical', shuffledOrder);
+    }
+
+    function face_fn1() {
+        const shapeTypes = ['cross', 'Z', 'L', 'T'];
+        const shuffledOrder = shuffle([...shapeTypes]);
+        document.data_form.IB_Tran_choiceArrayDivided.value = shuffledOrder.join(',');
+        console.log('IB_T_choiceArrayDivided', shuffledOrder);
+    }
+
+    function store_data(div_id){
+        if (div_id == 'line_judgment') {
+            var options = document.getElementsByName("line_judgment_ans");
+            for (var i=0;i<options.length;i++) { //TODO use this to capture responses and clear them at the same time
+                if (options[i].checked) {
+                    document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_actual'].value = options[i].value;
+                    document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_resp'].value = last_line_longer;
+                    document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_acc'].value = options[i].value === last_line_longer ? 1 : 0;
+                }
+                options[i].checked = false;
+            }
+            document.getElementById("line_judgment").style.display = 'none';
+            document.getElementById("line_judgment").style.visibility = 'hidden';
+            trialsCompleted += 1;
+            if (trialsCompleted < 4) {
+                run();
+            } else if (trialsCompleted == 4) {
+                document.getElementById("IB_Tran_noticeCritical").style.display = 'block';
+            } else {
+                document.getElementById("square_notice1").style.display = 'block';
+            }
+        } else if (div_id == 'IB_Tran_noticeCritical') {
+            document.data_form.IB_Tran_noticeCritical.value = getRadioValue('IB_Tran_noticeCritical');
+            document.getElementById("IB_Tran_noticeCritical").style.display = 'none';
+            face_fn();
+            document.getElementById("face_question").style.display = 'block';
+        } else if (div_id == 'face_question')  {
+            document.data_form.IB_Tran_choiceCritical.value = getRadioValue('face_question');
+            document.getElementById("face_question").style.display = 'none';
+            document.getElementById("IB_Tran_devoteAttention_critical").style.display = 'block';
+        } else if (div_id == 'IB_Tran_devoteAttention_critical') {
+            document.data_form.IB_Tran_devoteAttention_critical.value = getRadioValue('IB_Tran_devoteAttention_critical');
+            console.log('IB_Tran_devoteAttention_critical: ', document.data_form.IB_Tran_devoteAttention_critical.value)
+            document.getElementById("IB_Tran_devoteAttention_critical").style.display = 'none';
+            document.getElementById("fullAttentionInst").style.display = 'block';
+        } else if (div_id == 'fullAttentionInst') {
+            document.getElementById("fullAttentionInst").style.display = 'none';
+            run();
+        } else if (div_id == 'square_notice1') {
+            document.data_form.IB_Tran_noticeDivided.value = getRadioValue('square_notice1');
+            document.getElementById("square_notice1").style.display = 'none';
+            face_fn1();
+            document.getElementById("face_question1").style.display = 'block';
+        } else if (div_id == 'face_question1') {
+            document.data_form.IB_Tran_choiceDivided.value = getRadioValue('face_question1');
+            document.getElementById("face_question1").style.display = 'none';
+            document.getElementById("IB_Tran_devoteAttention_divided").style.display = 'block';
+        } else if (div_id == 'IB_Tran_devoteAttention_divided') {
+            document.data_form.IB_Tran_devoteAttention_divided.value = getRadioValue('IB_Tran_devoteAttention_divided');
+            console.log('IB_Tran_devoteAttention_divided: ', document.data_form.IB_Tran_devoteAttention_divided.value)
+            document.getElementById("IB_Tran_devoteAttention_divided").style.display = 'none';
+            document.getElementById("debrief").style.display = 'block';
+
+            //Record end time and calculate experiment duration
+            DayEnd = formatDate(new Date());
+            document.data_form.IB_Tran_end.value = DayEnd;
+            TimeEnd = new Date();
+            duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+            document.data_form.IB_Tran_duration.value = duration;
+        }
+    }
+
+
+    function drawInlineSVG(svgElement, ctx, x1, y1) {
+        var svgURL = new XMLSerializer().serializeToString(svgElement);
+        var img = new Image();
+        img.src = 'data:image/svg+xml; charset=utf8, ' + encodeURIComponent(svgURL);
+        img.onload = function() {
+            ctx.drawImage(this, x1, y1, 40, 40);
+        }
+    }
+
+
+    function drawSquare(location) {
+
+        var display = document.getElementById("crossDisplay");
+        var context = display.getContext("2d");
+        var thickness = 2;
+        var lengths = [2.7*scale, 3.3*scale, 3.9*scale, 4.5*scale];
+        var width = lengths[Math. floor(Math.random()*4)];
+        lengths.splice(lengths.indexOf(width), 1);
+        var height = lengths[Math. floor(Math.random()*3)];
+        document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossHor'].value = width;
+        document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossVert'].value = height;
+        console.log("crossHor", document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossHor'].value)
+        console.log("crossVert", document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossVert'].value)
+        var offset = width - height;
+        last_line_longer = width > height ? 'horiz' : 'vert';
+        var cross_dist = 2*scale;
+        document.data_form.IB_Tran_objectDistanceFromFixation.value = 0;
+        var allpos = [[.5*display.width - cross_dist, .5*display.height - cross_dist], [.5*display.width + cross_dist, .5*display.height - cross_dist],
+            [.5*display.width + cross_dist, .5*display.height + cross_dist], [.5*display.width - cross_dist, .5*display.height + cross_dist]]; //4 peripheral coordinates
+        var pos = allpos[location];
+        var x = pos[0];
+        var y = pos[1];
+        if (cross_loc == 0) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'UL ' + [x,y];
+        } else if (cross_loc == 1) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'UR ' + [x,y];
+        } else if (cross_loc == 2) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'LR ' + [x,y];
+        } else if (cross_loc == 3) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'LL ' + [x,y];
+        }
+        console.log(document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value);
+        var [x1, y1] = [.5*display.width - 20, .5*display.height - 20];
+
+        /////////////////
+        var svgElement = document.querySelector(`.${face} svg`)
+        drawInlineSVG(svgElement, context, x1, y1)
+        /////////////////
+
+        context.save();
+        context.lineWidth = thickness;
+        context.beginPath();
+        context.moveTo(x - (.5*width), y);
+        context.lineTo(x + (.5*width), y);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x, y - (.5*height));
+        context.lineTo(x, y + (.5*height));
+        context.stroke();
+        context.restore();
+    }
+
+    function drawCross(location) {
+
+        var display = document.getElementById("crossDisplay");
+        var context = display.getContext("2d");
+        var thickness = 2;
+        var lengths = [2.7*scale, 3.3*scale, 3.9*scale, 4.5*scale];
+        var width = lengths[Math. floor(Math.random()*4)];
+        lengths.splice(lengths.indexOf(width), 1);
+        var height = lengths[Math. floor(Math.random()*3)];
+        document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossHor'].value = width;
+        document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossVert'].value = height;
+        console.log("crossHor", document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossHor'].value)
+        console.log("crossVert", document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossVert'].value)
+        var offset = width - height;
+        last_line_longer = width > height ? 'horiz' : 'vert';
+        var cross_dist = 2*scale; // horizontal/vertical distance to the center of display
+        document.data_form.IB_Tran_crossDistanceFromFixation.value = cross_dist;
+        var allpos = [[.5*display.width - cross_dist, .5*display.height - cross_dist], [.5*display.width + cross_dist, .5*display.height - cross_dist],
+            [.5*display.width + cross_dist, .5*display.height + cross_dist], [.5*display.width - cross_dist, .5*display.height + cross_dist]]; //4 peripheral coordinates
+        var pos = allpos[location];
+        //var rnd_pos = pos[Math. floor(Math.random())]
+        var x = pos[0];
+        var y = pos[1];
+        if (cross_loc == 0) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'UL ' + [x,y];
+        } else if (cross_loc == 1) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'UR ' + [x,y];
+        } else if (cross_loc == 2) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'LR ' + [x,y];
+        } else if (cross_loc == 3) {
+            document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value = 'LL ' + [x,y];
+        }
+        console.log(document.data_form['IB_Tran_' + (trialsCompleted + 1) + '_crossLocation'].value);
+        context.save();
+        context.lineWidth = thickness;
+        context.beginPath();
+        context.moveTo(x - (.5*width), y);
+        context.lineTo(x + (.5*width), y);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(x, y - (.5*height));
+        context.lineTo(x, y + (.5*height));
+        context.stroke();
+        context.restore();
+    } //end of lines class
+
+    function drawFixation() {
+        var display = document.getElementById("fixDisplay");
+        var context = display.getContext("2d");
+        var radius = 5;
+        var x = .5*display.width;//half the canvas width
+        var y = .5*display.height;
+        context.save();
+        context.fillStyle = 'black';
+        context.beginPath();
+        context.arc(x, y, radius, 0, (Math.PI*2), true);
+        context.closePath();
+        context.fill();
+        context.restore();
+    }; //end of fixation
+
+    function drawMask() {
+        var display = document.getElementById("maskDisplay");
+        var context = display.getContext("2d");
+        var radius = 5*scale;
+        var x = .5*display.width;//half the canvas width
+        var y = .5*display.height;
+        context.save();
+        var pattern = context.createPattern(maskimg, "repeat");
+        context.fillStyle = pattern;
+        context.beginPath();
+        context.arc(x, y, radius, 0, (Math.PI*2), true);
+        context.closePath();
+        context.fill();
+        context.restore();
+    }
+
+    function drawBorder() {
+        var display = document.getElementById("bgDisplay");
+        var context = display.getContext("2d");
+        var radius = 5*scale;
+        var x = .5*display.width;//half the canvas width
+        var y = .5*display.height;
+        var thickness = 3;
+        context.save();
+        context.strokeStyle = 'black';
+        context.lineWidth = thickness;
+        context.beginPath();
+        context.arc(x, y, radius, 0, (Math.PI*2), true);
+        context.closePath();
+        context.stroke();
+        context.restore();
+    }
+
+    function clearDisplay(canvas) {
+        var context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function get_condition() {
+        document.getElementById('data_form').addEventListener('submit', function(event){
+            event.preventDefault();
+
+            var formData = new FormData(this);
+            var object = {};
+            formData.forEach(function(value, key){
+                object[key] = value;
+            });
+            console.log(object);
+        });
+    }
+
+    function main() {
+        setTimeout(function(){
+            if ((screen.width < 480) || (screen.height < 480)) {
+                var mobile = document.getElementById("mobileDetected");
+                mobile.style.display = "block";
+            } else {
+                //get_condition(assign_condition);
+                get_condition();
+                trialParams = ['cross', 'cross', 'cross', 'ib', 'ib'];
+                //trialParams = ['ib', 'ib'];
+                trialsCompleted = 0;
+                scale = 50; //pixels per degree; adjust here to adjust everywhere
+                run();
+            }
+        }, 100);
+    }
+
+    main();
+
+</script>
+</body>
+</html>

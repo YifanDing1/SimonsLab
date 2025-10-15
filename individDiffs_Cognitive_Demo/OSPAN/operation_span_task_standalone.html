@@ -1,0 +1,391 @@
+<html>
+<head>
+  <title>WM operation span task</title>
+  <script src="jspsych-6.0.4/jspsych.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-html-button-operationspan.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-survey-text.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-instructions.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-fullscreen.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-operation-span-recall.js"></script>
+  <script src="jspsych-6.0.4/plugins/jspsych-survey-multi-choice.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jstat@latest/dist/jstat.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <link href="jspsych-6.0.4/css/jspsych_operationspan.css" rel="stylesheet" type="text/css">
+</head>
+<body></body>
+<script>
+
+  //----- CUSTOMIZABLE VARIABLES -----------------------------------------
+  minSetSize = 3 // starting length of each trial (i.e., min number of letters in a trial); default: 3
+  maxSetSize = 7 // ending length of each trial (i.e., max number of letters in a trial); default: 7
+  repSet = 1 // number of times each set size should be repeated; default: 3
+  randomize = true // present different set sizes in random order. if false, set sizes will be presented in ascending order
+  file_name = null // file name for data file. if null, a default name consisting of the participant ID and a unique number is chosen.
+  local = false // true to save the data file locally.
+  //----------------------------------------------------------------------
+  function getSubjectFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+  }
+
+  // Retrieve the subject_code value
+  const subjectCode = getSubjectFromUrl();
+  console.log("subject_code value from URL:", subjectCode);
+
+  function formatDate(date) {
+    // Get the date string in the CST timezone
+    const options = {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // Format the date using Intl.DateTimeFormat
+    const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+
+    // Transform from MM/DD/YYYY, HH:MM:SS to YYYY/MM/DD HH:MM:SS
+    const [datePart, timePart] = cstDateString.split(', ');
+    const [month, day, year] = datePart.split('/');
+
+    return `${year}/${month}/${day} ${timePart}`;
+  }
+
+  let Start = formatDate(new Date());
+  let End;
+  let duration;
+  let TimeEnd;
+  let TimeStart = new Date();
+  console.log(Start)
+
+  var possibleLetters = ["F","H","J","K","L","N","P","Q","R","S","T","V"]
+
+  var setSizes = []    // different set sizes
+  for (var i = minSetSize; i<= maxSetSize; i++){
+    for (var r = 1; r<= repSet; r++){
+      setSizes.push(i)
+    }
+  }
+
+  var nTrials = setSizes.length // number of trials
+
+  if (randomize){
+    setSizes = jsPsych.randomization.sampleWithoutReplacement(setSizes, nTrials)} // shuffle through the set sizes
+
+  var letterMemDemoArray = [3,4,5]  // set sizes of initial demo trials; default: 3,4,5
+  var fullDemoArray = [3,4]       // set sizes of full demo trials; default: 3,4
+  var nPracticeTrials = letterMemDemoArray.length
+  var nfullDemo = fullDemoArray.length
+  var nCogLoadDemo = 0
+
+  // Slice the first two elements of letterMemDemoArray
+  var slicedLetterMemDemoArray = letterMemDemoArray.slice(0, 3);
+  // Concatenate the arrays
+  setSizes = slicedLetterMemDemoArray.concat(fullDemoArray, setSizes);
+  console.log(setSizes)
+  //setSizes = letterMemDemoArray.concat(fullDemoArray, setSizes)
+  var totalTrials = setSizes.length //total number of trials in the entire task (demo + main task)
+
+  var n = 0 //keeps track of number of trials gone by
+  var selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n])
+  var selection_id = 0 //keeps track of recall items within a test stack
+
+  var nLetters = 0
+  var nLettersRecalled = 0 // feedback
+  var nMathAcc = 0 // feedback
+
+  var cogloadf = function(correct){  // generates math questions
+    var possibleOperations = [" + ", " - "]
+    operation = jsPsych.randomization.sampleWithReplacement(possibleOperations, 1)[0]
+    if (operation==" + "){
+      num1 = Math.floor(jStat.uniform.sample(1, 11))
+      num2 =  Math.floor(jStat.uniform.sample(1, 11))
+      ans = num1 + num2
+    } else if (operation==" - "){
+      num1 = Math.floor(jStat.uniform.sample(1, 11))
+      num2 = Math.floor(jStat.uniform.sample(1, num1))
+      ans = num1 - num2
+    }
+    if (!correct){   // generates incorrect answers
+      ansDiff = jsPsych.randomization.sampleWithReplacement([1,2],1)[0]
+      coinFlip = jsPsych.randomization.sampleWithReplacement([true, false],1)[0]
+      if (coinFlip){
+        ans += ansDiff
+      } else {
+        ans -= ansDiff
+      }
+      if (ans<0){
+        ans += 2*ansDiff //ensuring no negative incorrect answers
+      }
+    }
+    return '<div style="font-size:46px;">'+num1+operation+num2+' = '+ans+'<br><br><br><br></div>'
+  }
+
+  var instructions = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br> This task has two parts: <br>(1) memorizing letters<br>(2) solving simple math problems<br><br><br></div>'
+      pageTwo = '<div style="font-size:20px;">You will first practice the LETTER MEMORIZATION part of the task.<br><br>A sequence of letters will appear on the screen one at a time (around 3 to 7).<br>Try to remember the set of letters in the order they appeared.<br><br>After the sequence of letters, you will see a screen showing 12 possible letters.<br>Your task is to use your computer mouse to select each letter that you saw <b>in the order you saw them.</b> <br><br>If you make a mistake use the provided "Backspace" button to clear your last response. <br><br>Remember, it is important that you select the letters in the order that you saw them.<br> So if you forget one of the letters, guess the best you can for that one, and select the rest in their correct order.<br><br>Press "Next" for practice trials.<br><br></div>'
+      return [pageOne, pageTwo]//, pageThree]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+  }
+
+  var instructions2 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">You will next practice the MATH PROBLEM part of the task. <br><br>An equation will appear on the screen, like this: <br>3 + 4 = 7<br>Your task is to solve the math problem and determine if the answer is correct. <br><br>For example, if you saw the following problem:<br>2 + 3 = 5<br>you would click the <b>"True"</b> button because adding 2 and 3 does equal 5.<br><br>If you saw the following problem:<br>2 + 3 = 6<br>you would click the <b>"False"</b> button because adding 2 and 3 DOES NOT equal 6. <br><br> It is important to work QUICKLY and ACCURATELY on the math problem. Each math problem will be presented for only 6 seconds. <br><br>Press "Next" for the practice problems. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var instructions3 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">You will now practice the two tasks together.<br><br>You will see a letter that you should remember. After the letter disappears, you will see a math problem and judge if it is true or false. <br><br> You will then see another letter, followed by another math problem. And so on, until you have seen 3 to 7 letters and solved 3 to 7 math problems. <br><br>You will then see the letter grid and you will use your mouse to select the letters you saw <b>in the correct order</b>, just like you did during the practice trials. <br><br>As before, you will have up to 6 seconds to solve each math problem, so please work quickly and accurately. <br><br>Press "Next" for the practice problems for this combined task. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true,
+    on_finish: function(){
+      nMathAcc = 0
+    }
+  }
+
+  var instructions4 = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = '<div style="font-size:20px;">You have finished with the practice.<br><br>The main trials will be just like the ones you just practiced. <br><br>Press "Next" to begin. <br><br></div>'
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next",
+    show_clickable_nav: true
+  }
+
+  var cog_load_demo = {
+    type: 'html-button-operationspan',
+    nPracticeTrials: function() { return 0; },
+    n: function() { return 0; },
+    setSizes: function() { return 0; },
+    nTrials: function() { return 0; },
+    equation_accuracy: function(){
+      nCogLoadDemo +=1
+      if (nCogLoadDemo==1){
+        eqCorrect = true
+      } else if (nCogLoadDemo==2){
+        eqCorrect = false
+      } else {
+        eqCorrect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
+      }
+      return eqCorrect
+    },
+    stimulus: function(){
+      return cogloadf(eqCorrect)
+    },
+    choices: ["True", "False"],
+    on_finish: function(){
+      var acc = jsPsych.data.get().last(1).values()[0].accuracy;
+      if (acc==1){
+        nMathAcc+=1
+      }
+    }
+  }
+
+  var cog_load = {
+    type: 'html-button-operationspan',
+    nPracticeTrials: function() { return nPracticeTrials; },
+    n: function() { return n; },
+    setSizes: function() { return setSizes[n]; },
+    nTrials: function() { return nTrials; },
+    equation_accuracy: function(){
+      eqCorrect = jsPsych.randomization.sampleWithReplacement([true, false], 1)[0]
+      return eqCorrect
+    },
+    stimulus: function(){
+      return cogloadf(eqCorrect)
+    },
+    trial_duration:6000,
+    choices: ["True", "False"],
+    on_finish: function(){
+      var acc = jsPsych.data.get().last(1).values()[0].accuracy;
+      if (acc==1){
+        nMathAcc+=1
+      }
+    }
+  }
+
+  var test_stimuli = {            // generate letters
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      return '<div style="font-size:70px;">'+selection[selection_id]+'<br><br><br><br></div>'
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 1000,
+    on_finish: function(){
+      selection_id += 1
+    }
+  }
+
+  var end_test_stimuli = {
+    type: 'html-keyboard-response',
+    stimulus: " ",
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 0,
+    on_finish: function(){
+      if (selection_id>=selection.length){
+        jsPsych.endCurrentTimeline()
+      }
+    }
+  }
+
+  var recall = {
+    type: 'operation-span-recall',
+    nPracticeTrials: function() { return nPracticeTrials; },
+    n: function() { return n; },
+    nLetters: function() { return setSizes[n]; },
+    correct_order: function(){
+      return selection
+    },
+    data: function(){
+      let normalTrialSetSizes = setSizes.slice(-5);
+      return {
+        OSPAN_setSizeSequence: normalTrialSetSizes,
+        OSPAN_duration: duration,
+        OSPAN_start: Start,
+        OSPAN_end: End,
+        subject_code: subjectCode
+      };
+    },
+    on_finish: function(){
+      nLetters = setSizes[n]
+      nLettersRecalled = jsPsych.data.get().last(1).values()[0].accuracy;
+      n+=1;
+      selection = jsPsych.randomization.sampleWithoutReplacement(possibleLetters, setSizes[n]);
+      selection_id = 0;
+      End = formatDate(new Date());
+      TimeEnd = new Date();
+      duration = Math.round((TimeEnd.getTime() - TimeStart.getTime())/1000);
+    }
+  }
+
+  var feedback = {
+    type: 'instructions',
+    pages: function(){
+      pageOne = "<div style='font-size:20px;'><b>You recalled <font color='blue'>"+nLettersRecalled+" out of "+nLetters+"</font> letters in their correct order.</b><br><br>"
+      if (n>nPracticeTrials){
+        pageOne+= "You solved <font color='blue'>"+nMathAcc+" out of "+nLetters+"</font> math problems accurately.<br><br></div>"
+      }
+      return [pageOne]
+    },
+    allow_backward: false,
+    button_label_next: "Next Trial",
+    show_clickable_nav: true,
+    on_finish: function(){
+      nMathAcc = 0
+    }
+  }
+
+  var feedbackLoad = {
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      var text = ""
+      var accuracy = jsPsych.data.get().last(1).values()[0].accuracy
+      if (accuracy==1){
+        text += '<div style="font-size:35px; color:rgb(0 220 0)"><b>Correct<br><br><br><br></div>'
+      } else{
+        text += '<div style="font-size:35px; color:rgb(240 0 0)"><b>Incorrect<br><br><br><br></div>'
+      }
+      return text
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 1000
+  }
+
+  var conclusion = {
+    type: 'html-keyboard-response',
+    stimulus: function(){
+      return '<div style="font-size:20px;">This task is complete, and the next task will start automatically in a moment. </div>'
+    },
+    choices: jsPsych.NO_KEYS,
+    trial_duration: 2000
+  }
+
+  var dataLog = {
+    type: 'html-keyboard-response',
+    stimulus: " ",
+    trial_duration: 100,
+    on_finish: function(data) {
+      //var trialData = JSON.parse(jsPsych.data.get().json());
+      var trialData = JSON.parse(jsPsych.data.get().json());
+      var participantData = {};
+
+      // Accumulate data for each trial into the participantData object
+      trialData.forEach(row => {
+        for (var key in row) {
+          if (row.hasOwnProperty(key)) {
+            // Use the key as the column name and assign the value from the row
+            participantData[key] = row[key];
+          }
+        }
+      });
+
+      console.log("The following data won't be recorded:", JSON.stringify(participantData, null, 2)); // Pretty print JSON
+    }
+  }
+
+  var test_stack = {
+    timeline: [test_stimuli, cog_load, end_test_stimuli],
+    repetitions: 10
+  }
+
+  var test_procedure = {
+    timeline: [test_stack, recall], //add feedback after "recall" to show results of accuracy at the end of each trial
+    repetitions: nTrials
+  }
+
+  var lettersDemoStack = {
+    timeline: [test_stimuli, end_test_stimuli],
+    repetitions: 10
+  }
+
+  var lettersDemo = {
+    timeline: [lettersDemoStack, recall, feedback],
+    repetitions: nPracticeTrials
+  }
+
+  var loadDemo = {
+    timeline: [cog_load_demo, feedbackLoad],
+    repetitions: 5 //default: 5
+  }
+
+  var fullDemo = {
+    timeline: [test_stack, recall, feedback],
+    repetitions: nfullDemo
+  }
+
+  timeline = []
+
+  timeline = timeline.concat([instructions, lettersDemo, instructions2, loadDemo, instructions3, fullDemo, instructions4, test_procedure])
+
+  timeline.push(dataLog)
+  timeline.push(conclusion)
+
+  jsPsych.init({
+    timeline: timeline
+  });
+</script>
+</html>
