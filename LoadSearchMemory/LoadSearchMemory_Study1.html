@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="English">
+<head>
+  <title>Compatibility Study</title>
+  <script src="jspsych/jspsych.js"></script>
+  <script src="jspsych/jspsych-instructions.js"></script>
+  <script src="jspsych/jspsych-html-keyboard-response.js"></script>
+  <script src="jspsych/jspsych-html-button-response.js"></script>
+  <script src="jspsych/jspsych-survey-text.js"></script>
+  <script src="jspsych/jspsych-survey-multi-choice.js"></script>
+  <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+  <link href="jspsych/arrow.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+</body>
+<script>
+  //----- CUSTOMIZABLE VARIABLES -----------------------------------------
+  arrowFixation = false        // change to true for arrow at fixation instead of dot
+  arrowCompatible = false     // change to true for compatible condition (arrow pointing towards number)
+  nTrials = 5                 // number of normal trials (default: 5)
+  nPracticeTrials = 3         // number of practice trials (default: 3)
+  stimulus_duration = 500        // how long the stimulus lasts in ms, set at 500
+  //----------------------------------------------------------------------
+  //Function to check the taskStarted value and proceed accordingly
+  function checkTaskStarted() {
+    // Get the subject_code from the URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const subjectCode = urlParams.get('subject_code');
+
+    // Make an AJAX request to the server-side script with the subject_code
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === XMLHttpRequest.DONE) {
+        if (xhr.status === 200) {
+          var response = JSON.parse(xhr.responseText);
+          if (response.taskStarted === 1) {
+            // Redirect to the warning page
+            window.location.href = 'warning.html';
+          } else {
+            // Proceed with loading the task
+            loadTask();
+          }
+        } else {
+          console.error('Error checking taskStarted value. Status:', xhr.status);
+        }
+      }
+    };
+    xhr.open('GET', 'check_task_started2.php?subject_code=' + encodeURIComponent(subjectCode), true);
+    xhr.send();
+  }
+
+  // Function to load the task
+  function loadTask() {
+
+    let jsPsych = initJsPsych({
+      on_finish() {
+        window.location.href = 'https://app.prolific.com/submissions/complete?cc=C12WBIK5'; //prolific link
+      }
+    });
+
+    let timeline = [];
+    let numbers = [];
+    let letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'P', 'R', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];  // removed 'I', 'O', and 'S' b/c of similarity to numbers
+    let symbols = ['@', '#', '$', '%', '&', '?', '+', '='];  // didn't include symbols that looked like dots or lines
+
+    let ibOptions = ['H', 'K', 'B'];
+    let filteredLetters = letters.filter(letter => !ibOptions.includes(letter));
+    let ibLetter = filteredLetters[Math.floor(Math.random() * filteredLetters.length)];
+
+    let radius = 110;  // distance from the center to position the grid items
+
+    let lastNumber
+    let targetIdentity = []
+    let itemsStrings = []
+    let correctResponsesCount = 0
+    let noticeSequence = []
+    let choiceSequence = []
+    let participantData = {}
+
+    //----- FUNCTIONS & DATA SAVING------------------------------------------------------
+    function getSubjectCodeFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('subject_code'); // Will return null if 'subject_code' is not in the URL
+    }
+
+    // Retrieve the subject_code value
+    const subjectCode = getSubjectCodeFromUrl();
+    console.log("Subject code from URL:", subjectCode);
+
+    let datalog = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "",
+      trial_duration: 100,
+      on_finish: function (data) {
+        var trialData = jsPsych.data.get();
+        // Accumulate data for each trial into the participantData object
+        trialData.trials.forEach(row => {
+          for (var key in row) {
+            if (row.hasOwnProperty(key)) {
+              // Use the key as the column name and assign the value from the row
+              participantData[key] = row[key];
+            }
+          }
+        });
+
+        console.log("Data being sent to server:", JSON.stringify(participantData, null, 2)); // Pretty print JSON
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', 'data.php', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = function () {
+          if (xhr.status == 200) {
+            var response = JSON.parse(xhr.responseText);
+            console.log(response.success);
+          }
+        };
+        xhr.send(JSON.stringify(participantData));
+      }
+    }
+
+    function getInfo(inputString) {
+      const symbolMatch = inputString.match(/>(.)</g);
+      const itemsString = symbolMatch ? symbolMatch.map(match => match.match(/>(.)</)[1]).join('') : null;
+      return {
+        itemsString: itemsString
+      };
+    }
+
+    function formatData(data) {
+      let responses = data.response;
+      for (let questionName in responses) {
+        if (responses.hasOwnProperty(questionName)) {
+          participantData[questionName] = responses[questionName];
+        }
+      }
+      data.start = jsPsych.getStartTime();
+      data.total_time = jsPsych.getTotalTime();
+      data.condition_load = (loadType === low_load) ? 'lowLoad' : 'highLoad';
+      data.ib_identity = ibLetter;
+      data.items_location = "1: [220, 110], 2: [188, 188], 3: [110, 220], 4: [32, 188], 5: [0, 110], 6: [32, 32], 7: [110, 0], 8: [188, 32]";
+      data.accuracy_beforeIBTrials = ((correctResponsesCount / (nTrials + nPracticeTrials)) * 100).toFixed(2);
+      data.subject_code = subjectCode;
+    }
+
+    //----------------------------------------------------------------------
+
+    let instructions = {
+      type: jsPsychInstructions,
+      pages: function () {
+        let pageOne = '<div style="font-size:20px;"><b>INSTRUCTIONS</b><br><br><br> You will see a circle made up of several characters and one number. <br><br> Press <b>e</b> if the number is even. <br> Press <b>o</b> if the number is odd. <br><br> You will first do 3 practice trials and receive feedback on whether your answer was correct or incorrect. <br><br> Press &#39;Space&#39; to begin the practice trials. <br><br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      key_forward: ' ',
+    };
+
+    let instructions2 = {
+      type: jsPsychInstructions,
+      pages: function () {
+        let pageOne = '<div style="font-size:20px;">We will now begin the regular trials. You will no longer receive feedback on your responses. <br><br><br> Press &#39;Space&#39; to begin the experiment.<br><br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      key_forward: ' ',
+    };
+
+    let fixation = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        return `<div class="circle-grid">*</div></div>`;
+      },
+      trial_duration: 1000,  // duration of fixation point (ms)
+      post_trial_gap: 300   // duration of delay before array (ms)
+    };
+
+    let confirmation = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: "</p>Press <b>space</b> to start the next trial.</p>",
+      choices: " ",
+      response_ends_trial: true
+    };
+
+    let X_dots = {  // low load
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let gridItems = [];
+        let randomIndex = Math.floor(Math.random() * 8);
+        let randomNumber = Math.floor(Math.random() * 8) + 1;
+        let degreeClass = '';
+
+        numbers.push(randomNumber);
+
+        for (let i = 0; i < 8; i++) {
+          let angle = (2 * Math.PI / 8) * i;
+          let x = radius * Math.cos(angle);
+          let y = radius * Math.sin(angle)
+
+          if (i === randomIndex) {
+            let arrowAngle;
+
+            if (arrowCompatible) {  // = true
+              arrowAngle = angle;
+            } else {
+              let randomOffset = Math.floor(Math.random() * 7 + 1);
+              arrowAngle = angle + (2 * Math.PI / 8) * randomOffset;
+            }
+
+            arrowAngle = arrowAngle % (2 * Math.PI);  // Normalize the angle
+            let arrowDegree = arrowAngle * (180 / Math.PI);
+            degreeClass = `rotate(${arrowDegree}deg)`;
+            let randomNumberX = Math.round(x + 160 - 50);
+            let randomNumberY = Math.round(y + 160 - 50);
+
+            gridItems.push(`<div class="circle-grid-center" style="left: ${randomNumberX}px; top: ${randomNumberY}px;">${randomNumber}</div>`);
+          } else {
+            gridItems.push(`<div class="circle-grid-center" style="left: ${Math.round(x + 160 - 50)}px; top: ${Math.round(y + 160 - 50)}px;">X</div>`);
+          }
+        }
+
+        if (arrowFixation) {  // = true
+          return `<div class="circle-grid">${gridItems.join('')}<img src="arrow.svg" style="transform: ${degreeClass};" alt=""></div></div>`;
+        } else {
+          return `<div class="circle-grid">${gridItems.join('')}</div></div>`;
+          // return `<div class="circle-grid">${gridItems.join('')}<div class="dot"></div></div>`;
+        }
+      },
+
+      stimulus_duration: stimulus_duration,
+      choices: ['e', 'o'],
+      data: function () {
+        lastNumber = numbers[numbers.length - 1];
+        let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+        return {correct_response: correctResponse};
+      },
+      on_finish: function (data) {
+        // Check if the user's response matches the correct response
+        data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        if (data.correct) {
+          correctResponsesCount++;
+        }
+        targetIdentity.push(lastNumber);
+        itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+        formatData(data);
+        numbers = [];
+
+        jsPsych.data.get().addToLast({
+          target_identity: targetIdentity,
+          items_string: itemsStrings,
+        })
+      }
+    };
+
+    let criticalTrial_low_load = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let gridItems = [];
+        let randomIndex = Math.floor(Math.random() * 8);
+        let randomNumber = Math.floor(Math.random() * 8) + 1;
+        let degreeClass = '';
+
+        numbers.push(randomNumber);
+
+        for (let i = 0; i < 8; i++) {
+          let angle = (2 * Math.PI / 8) * i;
+          let x = radius * Math.cos(angle);
+          let y = radius * Math.sin(angle);
+
+          if (i === randomIndex) {
+            let arrowAngle;
+
+            if (arrowCompatible) {  // = true
+              arrowAngle = angle;
+            } else {
+              let randomOffset = Math.floor(Math.random() * 7 + 1);
+              arrowAngle = angle + (2 * Math.PI / 8) * randomOffset;
+            }
+
+            arrowAngle = arrowAngle % (2 * Math.PI);  // Normalize the angle
+            let arrowDegree = arrowAngle * (180 / Math.PI);
+            degreeClass = `rotate(${arrowDegree}deg)`;
+            let randomNumberX = Math.round(x + 160 - 50);
+            let randomNumberY = Math.round(y + 160 - 50);
+
+            gridItems.push(`<div class="circle-grid-center" style="left: ${x + 160 - 50}px; top: ${y + 160 - 50}px;">${randomNumber}</div>`);
+          } else {
+            gridItems.push(`<div class="circle-grid-center" style="left: ${x + 160 - 50}px; top: ${y + 160 - 50}px;">X</div>`);
+          }
+        }
+
+        return `<div class="circle-grid">${gridItems.join('')}<div class="ib">${ibLetter}</div></div>`;
+        // return `<div class="circle-grid">${gridItems.join('')}<div class="ib">${ibLetter}</div><img src="arrow.svg" style="transform: ${degreeClass};" alt=""></div>`;
+      },
+
+      stimulus_duration: stimulus_duration,
+      choices: ['e', 'o'],
+      data: function () {
+        // task: 'response';
+        lastNumber = numbers[numbers.length - 1];
+        let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+        return {correct_response: correctResponse};
+      },
+      on_finish: function (data) {
+        // Check if the user's response matches the correct response
+        data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        targetIdentity.push(lastNumber);
+        itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+        formatData(data);
+        numbers = [];
+
+        jsPsych.data.get().addToLast({
+          target_identity: targetIdentity,
+          items_string: itemsStrings
+        })
+      }
+    };
+
+    let alphabet_dots = {  // high load
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let gridItems = [];
+        let randomIndex = Math.floor(Math.random() * 8);
+        let randomNumber = Math.floor(Math.random() * 8) + 1;
+        let randomSymbols = jsPsych.randomization.repeat(symbols, 1);
+        let degreeClass = '';
+
+        numbers.push(randomNumber);
+
+        for (let i = 0; i < 8; i++) {
+          let angle = (2 * Math.PI / 8) * i;
+          let x = radius * Math.cos(angle);
+          let y = radius * Math.sin(angle)
+
+          if (i === randomIndex) {
+            let arrowAngle;
+
+            if (arrowCompatible) {  // = true
+              arrowAngle = angle;
+            } else {
+              let randomOffset = Math.floor(Math.random() * 7 + 1);
+              arrowAngle = angle + (2 * Math.PI / 8) * randomOffset;
+            }
+
+            arrowAngle = arrowAngle % (2 * Math.PI);  // Normalize the angle
+            let arrowDegree = arrowAngle * (180 / Math.PI);
+            degreeClass = `rotate(${arrowDegree}deg)`;
+            let randomNumberX = Math.round(x + 160 - 50);
+            let randomNumberY = Math.round(y + 160 - 50);
+
+            gridItems.push(`<div class="circle-grid-center" style="left: ${randomNumberX}px; top: ${randomNumberY}px;">${randomNumber}</div>`);
+          } else {
+            gridItems.push(`<div class="circle-grid-center" style="left: ${Math.round(x + 160 - 50)}px; top: ${Math.round(y + 160 - 50)}px;">${randomSymbols[i]}</div>`);
+          }
+        }
+
+        if (arrowFixation) {  // = true
+          return `<div class="circle-grid">${gridItems.join('')}<img src="arrow.svg" style="transform: ${degreeClass};" alt=""></div></div>`;
+        } else {
+          return `<div class="circle-grid">${gridItems.join('')}</div></div>`;
+          // return `<div class="circle-grid">${gridItems.join('')}<div class="dot"></div></div>`;
+        }
+      },
+
+      stimulus_duration: stimulus_duration,
+      choices: ['e', 'o'],
+      data: function () {
+        lastNumber = numbers[numbers.length - 1];
+        let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+        return {correct_response: correctResponse};
+      },
+      on_finish: function (data) {
+        // Check if the user's response matches the correct response
+        data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        if (data.correct) {
+          correctResponsesCount++;
+        }
+        targetIdentity.push(lastNumber);
+        itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+        formatData(data);
+        numbers = [];
+
+        jsPsych.data.get().addToLast({
+          target_identity: targetIdentity,
+          items_string: itemsStrings,
+        })
+      }
+    };
+
+    let criticalTrial_high_load = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let gridItems = [];
+        let randomIndex = Math.floor(Math.random() * 8);
+        let randomNumber = Math.floor(Math.random() * 8) + 1;
+        let randomSymbols = jsPsych.randomization.repeat(symbols, 1);
+
+        numbers.push(randomNumber);
+
+        for (let i = 0; i < 8; i++) {
+          let angle = (2 * Math.PI / 8) * i;
+          let x = radius * Math.cos(angle);
+          let y = radius * Math.sin(angle)
+
+          if (i === randomIndex) {
+            let arrowAngle;
+
+            if (arrowCompatible) {  // = true
+              arrowAngle = angle;
+            } else {
+              let randomOffset = Math.floor(Math.random() * 7 + 1);
+              arrowAngle = angle + (2 * Math.PI / 8) * randomOffset;
+            }
+
+            arrowAngle = arrowAngle % (2 * Math.PI);  // Normalize the angle
+            let arrowDegree = arrowAngle * (180 / Math.PI);
+            degreeClass = `rotate(${arrowDegree}deg)`;
+            let randomNumberX = Math.round(x + 160 - 50);
+            let randomNumberY = Math.round(y + 160 - 50);
+
+            gridItems.push(`<div class="circle-grid-center" style="left: ${x + 160 - 50}px; top: ${y + 160 - 50}px;">${randomNumber}</div>`);
+          } else {
+            gridItems.push(`<div class="circle-grid-center" style="left: ${x + 160 - 50}px; top: ${y + 160 - 50}px;">${randomSymbols[i]}</div>`);
+          }
+        }
+        return `<div class="circle-grid">${gridItems.join('')}<div class="ib">${ibLetter}</div></div>`;
+        // return `<div class="circle-grid">${gridItems.join('')}<div class="ib">${ibLetter}</div><img src="arrow.svg" style="transform: ${degreeClass};" alt=""></div>`;
+      },
+
+      stimulus_duration: stimulus_duration,
+      choices: ['e', 'o'],
+      data: function () {
+        lastNumber = numbers[numbers.length - 1];
+        let correctResponse = lastNumber % 2 === 0 ? 'e' : 'o';
+        return {correct_response: correctResponse};
+      },
+      on_finish: function (data) {
+        // Check if the user's response matches the correct response
+        data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        targetIdentity.push(lastNumber);
+        itemsStrings.push(getInfo(data.stimulus).itemsString.slice(0, 8))
+        formatData(data);
+        numbers = [];
+
+        jsPsych.data.get().addToLast({
+          target_identity: targetIdentity,
+          items_string: itemsStrings
+        })
+      }
+    };
+
+    //------------------QUESTIONS----------------------
+
+    let ib_question = {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: "<p>Did you notice anything extra in the last trial?</p>",
+      choices: ['No', 'Yes'],
+      on_finish: function (data) {
+        noticeSequence.push(data.response);
+        jsPsych.data.get().addToLast({
+          notice_critical: noticeSequence[0],
+          notice_divided: noticeSequence[1],
+          notice_full: noticeSequence[2]
+        })
+      }
+    };
+
+    let ib_question2 = {
+      type: jsPsychSurveyMultiChoice,
+      questions: [
+        {
+          prompt: "<p>What was the extra object? If you didn't see one or don't know, just guess.",
+          options: function () {
+            return ibOptions.concat(ibLetter).sort(() => Math.random() - 0.5);  // randomized order
+          },
+          required: true
+        }
+      ],
+      on_finish: function (data) {
+        for (let key in data.response) {
+          if (data.response.hasOwnProperty(key)) {
+            choiceSequence.push(data.response[key]);
+          }
+        }
+        jsPsych.data.get().addToLast({
+          choice_critical: choiceSequence[0],
+          choice_divided: choiceSequence[1],
+          choice_full: choiceSequence[2]
+        })
+      }
+    };
+
+    let dividAttention_instruction = {
+      type: jsPsychInstructions,
+      pages: function () {
+        let pageOne = '<div style="font-size:20px;"><br><br><br> Again, Find the number among characters. Press <b>e</b> if the number is even. Press <b>o</b> if the number is odd. <br><br> Press &#39;Space&#39; to continue. <br><br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      key_forward: ' ',
+    };
+
+    let fullAttention_instruction = {
+      type: jsPsychInstructions,
+      pages: function () {
+        let pageOne = '<div style="font-size:20px;"><br><br><br> For the next trial, pay attention to what is appearing at the center of the screen and ignore the circle of symbols. <br><br> Press <b>e</b> as your response when the image disappears. <br><br> Press &#39;Space&#39; to continue. <br><br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      key_forward: ' ',
+    };
+
+    let visual_acuity_questions = {
+      type: jsPsychSurveyMultiChoice,
+      questions: [
+        {
+          prompt: "Do you need vision correction (glasses, contacts)?",
+          name: 'visionCorrection_need',
+          options: ['Yes', 'No'],
+          required: true
+        },
+        {
+          prompt: "Do you currently use vision correction?",
+          name: 'visionCorrection_use',
+          options: ['Yes', 'No'],
+          required: true
+        }
+      ],
+      on_finish: function (data) {
+        formatData(data)
+      }
+    };
+
+    let exp_finish = {
+      type: jsPsychInstructions,
+      pages: function () {
+        let pageOne = '<p><br><br> Thank you for participating in the experiment! <br><br><br> Click &#39;Done&#39; to finish the experiment. <br><br><br></div>'
+        return [pageOne]
+      },
+      allow_backward: false,
+      button_label_next: 'Done',
+      show_clickable_nav: true
+    }
+
+    let feedback = {
+      type: jsPsychHtmlKeyboardResponse,
+      stimulus: function () {
+        let text = "";
+        let accuracy = jsPsych.data.get().last(1).values()[0].correct;
+        if (accuracy === true) {
+          text += '<div style="font-size:35px; color:rgb(0 220 0)"><b>Correct<br><br><br><br></div>'
+        } else {
+          text += '<div style="font-size:35px; color:rgb(240 0 0)"><b>Incorrect<br><br><br><br></div>'
+        }
+        return text
+      },
+      choices: "NO_KEYS",
+      trial_duration: 1000,
+    };
+
+    //--------------TIMELINE VARIABLES-----------------
+    let all_questions = {
+      timeline: [ib_question, ib_question2, visual_acuity_questions],  // add questions at the end of the timeline
+      repetitions: 1
+    }
+
+    let low_load_practice = {
+      timeline: [fixation, X_dots, feedback],
+      repetitions: nPracticeTrials
+    }
+    let low_load_normal = {
+      timeline: [fixation, X_dots],
+      repetitions: nTrials
+    }
+
+    let low_load_critical = {
+      timeline: [fixation, criticalTrial_low_load],
+      repetitions: 1
+    }
+
+    let low_load = {
+      timeline: [low_load_practice, instructions2, low_load_normal, low_load_critical, ib_question, ib_question2, dividAttention_instruction, low_load_critical, ib_question, ib_question2, fullAttention_instruction, low_load_critical, all_questions],
+      repetitions: 1
+    }
+
+    let high_load_practice = {
+      timeline: [fixation, alphabet_dots, feedback],
+      repetitions: nPracticeTrials
+    }
+
+    let high_load_normal = {
+      timeline: [fixation, alphabet_dots],
+      repetitions: nTrials
+    }
+
+    let high_load_critical = {
+      timeline: [fixation, criticalTrial_high_load],
+      repetitions: 1
+    }
+
+    let high_load = {
+      timeline: [high_load_practice, instructions2, high_load_normal, high_load_critical, ib_question, ib_question2, dividAttention_instruction, high_load_critical, ib_question, ib_question2, fullAttention_instruction, high_load_critical, all_questions],
+      repetitions: 1
+    }
+
+    if (Math.random() < 0.5) {
+      loadType = low_load;
+    } else {
+      loadType = high_load;
+    }
+
+    timeline.push(instructions, loadType, datalog, exp_finish);
+    jsPsych.run(timeline);
+  }
+  // Call the checkTaskStarted function when the page loads
+  window.onload = checkTaskStarted;
+</script>
+</html>
+
