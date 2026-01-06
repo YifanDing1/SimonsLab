@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inattentional Blindness Experiment - Educational Version</title>
+    <style>
+        /* STYLING*/
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        #experimentContainer {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Canvas should take up most of the screen when visible */
+        #canvasContainer {
+            text-align: center;
+            min-height: 600px;
+        }
+
+        #canvas {
+            display: block;
+            margin: 20px auto;
+            border: 2px solid #333;
+            background-color: #7676A7;
+        }
+
+        #controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        input[type="number"] {
+            font-size: 16px;
+            padding: 5px;
+            width: 80px;
+            margin: 5px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #instructions {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+            line-height: 1.5;
+            min-height: 200px;
+            padding: 40px;
+        }
+
+        .response-section {
+            background: #f9f9f9;
+            padding: 40px;
+            border-radius: 5px;
+            margin: 10px auto;
+            min-height: 300px;
+            max-width: 600px;
+        }
+
+        .shape-choice {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .shape-choice:hover {
+            border-color: #4CAF50;
+        }
+
+        .shape-choice.selected {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+
+        /* Make sure only one screen shows at a time */
+        .screen {
+            min-height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <div id="experimentContainer">
+        <!-- Instructions Screen -->
+        <div id="instructionScreen" class="screen">
+            <div id="instructions">
+                <p>Instructions...</p>
+            </div>
+            <div style="text-align: center;">
+                <button id="startButton" onclick="experiment.start()">Start Experiment</button>
+            </div>
+        </div>
+
+        <!-- Canvas Screen (for animation) -->
+        <div id="canvasScreen" class="screen hidden">
+            <div id="canvasContainer">
+                <canvas id="canvas" width="666" height="546"></canvas>
+            </div>
+        </div>
+
+        <!-- Response Input Screen -->
+        <div id="responseScreen" class="screen hidden">
+            <div id="responseSection" class="response-section">
+                <h2 id="responsePrompt">Enter your count:</h2>
+                <div id="singleCount" class="hidden">
+                    <label>Total bounces: </label>
+                    <input type="number" id="countInput" min="0" max="100">
+                    <br><br>
+                    <button id="submitCount" onclick="experiment.submitResponse()">Submit</button>
+                </div>
+                <div id="dualCount" class="hidden">
+                    <label>Circle bounces: </label>
+                    <input type="number" id="circleCountInput" min="0" max="100">
+                    <br><br>
+                    <label>Square bounces: </label>
+                    <input type="number" id="squareCountInput" min="0" max="100">
+                    <br><br>
+                    <button id="submitCountDual" onclick="experiment.submitResponse()">Submit</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yes/No Question Screen -->
+        <div id="yesNoScreen" class="screen hidden">
+            <div id="yesNoSection" class="response-section">
+                <h2 id="yesNoQuestion">Did you notice anything unusual?</h2>
+                <button onclick="experiment.submitYesNo('Yes')">Yes</button>
+                <button onclick="experiment.submitYesNo('No')">No</button>
+            </div>
+        </div>
+
+        <!-- Shape Selection Screen -->
+        <div id="shapeScreen" class="screen hidden">
+            <div id="shapeSection" class="response-section">
+                <h2>Select the shape you saw:</h2>
+                <div class="shape-choice" onclick="experiment.selectShape('cross')">
+                    <svg width="50" height="50">
+                        <line x1="25" y1="10" x2="25" y2="40" stroke="#777" stroke-width="3"/>
+                        <line x1="10" y1="25" x2="40" y2="25" stroke="#777" stroke-width="3"/>
+                    </svg>
+                </div>
+                <div class="shape-choice" onclick="experiment.selectShape('L')">
+                    <svg width="50" height="50">
+                        <line x1="15" y1="10" x2="15" y2="35" stroke="#777" stroke-width="3"/>
+                        <line x1="15" y1="35" x2="35" y2="35" stroke="#777" stroke-width="3"/>
+                    </svg>
+                </div>
+                <div class="shape-choice" onclick="experiment.selectShape('T')">
+                    <svg width="50" height="50">
+                        <line x1="10" y1="15" x2="40" y2="15" stroke="#777" stroke-width="3"/>
+                        <line x1="25" y1="15" x2="25" y2="40" stroke="#777" stroke-width="3"/>
+                    </svg>
+                </div>
+                <div class="shape-choice" onclick="experiment.selectShape('Z')">
+                    <svg width="50" height="50">
+                        <line x1="10" y1="15" x2="40" y2="15" stroke="#777" stroke-width="3"/>
+                        <line x1="40" y1="15" x2="10" y2="35" stroke="#777" stroke-width="3"/>
+                        <line x1="10" y1="35" x2="40" y2="35" stroke="#777" stroke-width="3"/>
+                    </svg>
+                </div>
+                <br><br>
+                <button onclick="experiment.submitShapeChoice()">Submit Choice</button>
+            </div>
+        </div>
+
+        <!-- Final Screen with Data Display -->
+        <div id="finalScreen" class="screen hidden">
+            <div id="dataDisplay" class="response-section">
+                <h2>Thank you for participating!</h2>
+                <h3>Experiment Data:</h3>
+                <pre id="dataOutput"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // EXPERIMENT CONTROLLER
+        // This is the main object that controls the entire experiment
+        // ============================================================
+        const experiment = {
+            // Configuration values - these control experiment parameters
+            config: {
+                numObjects: 8,              // Total number of moving objects
+                trialDuration: 10000,       // How long each trial lasts (milliseconds)
+                unexpectedObjectStart: 3000, // When the unexpected object appears
+                canvasWidth: 666,
+                canvasHeight: 546,
+                objectSize: 44,             // Size of moving objects
+                frameRate: 30               // Animation frames per second
+            },
+
+            // State tracking - keeps track of where we are in the experiment
+            state: {
+                currentTrial: 0,
+                trialSequence: ['practice', 'practice', 'critical', 'divided'],
+                isRunning: false,
+                countType: 'single',  // 'single' or 'dual' counting
+                attendedColor: 'white',
+                ignoredColor: 'black'
+            },
+
+            // Data collection - stores participant responses
+            data: {
+                trials: [],
+                actualBounces: [],  // Store actual bounce counts
+                responses: {
+                    counts: [],
+                    noticedUnexpected: null,
+                    shapeIdentification: null
+                }
+            },
+
+            // Initialize the experiment
+            init() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.objects = [];
+                this.unexpectedObject = null;
+
+                // Randomly assign counting condition
+                this.state.countType = Math.random() < 0.5 ? 'single' : 'dual';
+
+                console.log("Experiment initialized with", this.state.countType, "counting");
+            },
+
+            // Start the experiment
+            start() {
+                this.init();
+                this.showScreen('instructionScreen');
+                document.getElementById('startButton').style.display = 'none';
+                this.showInstructions();
+            },
+
+            // Helper function to show only one screen at a time
+            showScreen(screenId) {
+                // Hide all screens
+                document.querySelectorAll('.screen').forEach(screen => {
+                    screen.classList.add('hidden');
+                });
+                // Show the requested screen
+                document.getElementById(screenId).classList.remove('hidden');
+            },
+
+            // Show instructions based on trial type
+            showInstructions() {
+                this.showScreen('instructionScreen');
+                const instructions = document.getElementById('instructions');
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+
+                let message = "";
+                if (trialType === 'practice') {
+                    if (this.state.countType === 'single') {
+                        message = `<h2>Trial ${this.state.currentTrial + 1}</h2>
+                                  <p>Count the total number of times ANY ${this.state.attendedColor.toUpperCase()} shape
+                                  bounces off the walls.</p>
+                                  <p>Ignore ${this.state.ignoredColor} shapes.</p>`;
+                    } else {
+                        message = `<h2>Trial ${this.state.currentTrial + 1}</h2>
+                                  <p>Count SEPARATELY:</p>
+                                  <p>1. How many times ${this.state.attendedColor.toUpperCase()} CIRCLES bounce</p>
+                                  <p>2. How many times ${this.state.attendedColor.toUpperCase()} SQUARES bounce</p>`;
+                    }
+                } else if (trialType === 'critical') {
+                    message = `<h2>Trial ${this.state.currentTrial + 1}</h2>
+                              <p>Continue counting as before.</p>`;
+                } else if (trialType === 'divided') {
+                    message = `<h2>Trial 3</h2>
+                              <p>Continue counting AND look for anything unusual.</p>`;
+                }
+
+                instructions.innerHTML = `${message}<br><button onclick="experiment.startTrial()">Start Trial</button>`;
+            },
+
+            // Start a single trial
+            startTrial() {
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                console.log("Starting trial:", trialType);
+
+                // Show canvas screen
+                this.showScreen('canvasScreen');
+
+                this.createObjects();
+                this.state.isRunning = true;
+
+                // Set up unexpected object for critical trials
+                if (trialType === 'critical' || trialType === 'divided') {
+                    setTimeout(() => {
+                        this.addUnexpectedObject();
+                    }, this.config.unexpectedObjectStart);
+                }
+
+                // Start animation
+                this.animate();
+
+                // End trial after duration
+                setTimeout(() => {
+                    this.endTrial();
+                }, this.config.trialDuration);
+            },
+
+            // Create moving objects
+            createObjects() {
+                this.objects = [];
+                const shapes = ['circle', 'square'];
+                const colors = [this.state.attendedColor, this.state.ignoredColor];
+
+                for (let i = 0; i < this.config.numObjects; i++) {
+                    const margin = this.config.objectSize;
+                    this.objects.push({
+                        x: Math.random() * (this.config.canvasWidth - margin * 2) + margin,
+                        y: Math.random() * (this.config.canvasHeight - margin * 2) + margin,
+                        vx: (Math.random() - 0.5) * 4,
+                        vy: (Math.random() - 0.5) * 4,
+                        shape: shapes[i % 2],
+                        color: colors[Math.floor(i / 4)],
+                        size: this.config.objectSize,  // Add size property to each object
+                        bounces: 0,
+                        circleBounces: 0,
+                        squareBounces: 0
+                    });
+                }
+            },
+
+            // Add unexpected object
+            addUnexpectedObject() {
+                const shapes = ['cross', 'L', 'T', 'Z'];
+                this.unexpectedObject = {
+                    x: -30,
+                    y: this.config.canvasHeight / 2,
+                    vx: 2,
+                    vy: 0,
+                    shape: shapes[Math.floor(Math.random() * shapes.length)],
+                    color: '#777777',
+                    size: this.config.objectSize
+                };
+
+                this.data.trials.push({
+                    type: this.state.trialSequence[this.state.currentTrial],
+                    unexpectedShape: this.unexpectedObject.shape
+                });
+
+                console.log("Unexpected object added:", this.unexpectedObject.shape);
+            },
+
+            // Animation loop
+            animate() {
+                if (!this.state.isRunning) return;
+
+                // Clear canvas
+                this.ctx.fillStyle = '#7676A7';
+                this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
+
+                // Update and draw objects
+                this.objects.forEach(obj => {
+                    this.updateObject(obj);
+                    this.drawObject(obj);
+                });
+
+                // Draw unexpected object if present
+                if (this.unexpectedObject) {
+                    this.updateUnexpectedObject();
+                    this.drawUnexpectedObject();
+                }
+
+                // Continue animation
+                requestAnimationFrame(() => this.animate());
+            },
+
+            // Update object position and check for bounces
+            updateObject(obj) {
+                // Store previous position to check for bounces
+                const prevX = obj.x;
+                const prevY = obj.y;
+
+                // Update position
+                obj.x += obj.vx;
+                obj.y += obj.vy;
+
+                // Check wall collisions with proper boundary detection
+                const radius = obj.size / 2;
+
+                // Left and right walls
+                if (obj.x - radius <= 0 || obj.x + radius >= this.config.canvasWidth) {
+                    obj.vx *= -1;
+                    // Keep object in bounds
+                    if (obj.x - radius <= 0) obj.x = radius;
+                    if (obj.x + radius >= this.config.canvasWidth) obj.x = this.config.canvasWidth - radius;
+
+                    // Count bounce
+                    obj.bounces++;
+                    if (obj.shape === 'circle') obj.circleBounces++;
+                    if (obj.shape === 'square') obj.squareBounces++;
+                }
+
+                // Top and bottom walls
+                if (obj.y - radius <= 0 || obj.y + radius >= this.config.canvasHeight) {
+                    obj.vy *= -1;
+                    // Keep object in bounds
+                    if (obj.y - radius <= 0) obj.y = radius;
+                    if (obj.y + radius >= this.config.canvasHeight) obj.y = this.config.canvasHeight - radius;
+
+                    // Count bounce
+                    obj.bounces++;
+                    if (obj.shape === 'circle') obj.circleBounces++;
+                    if (obj.shape === 'square') obj.squareBounces++;
+                }
+            },
+
+            // Update unexpected object
+            updateUnexpectedObject() {
+                if (this.unexpectedObject) {
+                    this.unexpectedObject.x += this.unexpectedObject.vx;
+
+                    // Remove when off screen
+                    if (this.unexpectedObject.x > this.config.canvasWidth + 30) {
+                        this.unexpectedObject = null;
+                    }
+                }
+            },
+
+            // Draw object on canvas
+            drawObject(obj) {
+                this.ctx.fillStyle = obj.color;
+                const size = obj.size;
+
+                if (obj.shape === 'circle') {
+                    this.ctx.beginPath();
+                    this.ctx.arc(obj.x, obj.y, size/2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                } else if (obj.shape === 'square') {
+                    this.ctx.fillRect(obj.x - size/2, obj.y - size/2, size, size);
+                }
+            },
+
+            // Draw unexpected object
+            drawUnexpectedObject() {
+                if (!this.unexpectedObject) return;
+
+                const uo = this.unexpectedObject;
+                this.ctx.strokeStyle = uo.color;
+                this.ctx.lineWidth = 8;
+                const size = uo.size;
+
+                this.ctx.beginPath();
+                if (uo.shape === 'cross') {
+                    this.ctx.moveTo(uo.x - size/2, uo.y);
+                    this.ctx.lineTo(uo.x + size/2, uo.y);
+                    this.ctx.moveTo(uo.x, uo.y - size/2);
+                    this.ctx.lineTo(uo.x, uo.y + size/2);
+                } else if (uo.shape === 'L') {
+                    this.ctx.moveTo(uo.x - size/2, uo.y - size/2);
+                    this.ctx.lineTo(uo.x - size/2, uo.y + size/2);
+                    this.ctx.lineTo(uo.x + size/4, uo.y + size/2);
+                } else if (uo.shape === 'T') {
+                    this.ctx.moveTo(uo.x - size/2, uo.y - size/2);
+                    this.ctx.lineTo(uo.x + size/2, uo.y - size/2);
+                    this.ctx.moveTo(uo.x, uo.y - size/2);
+                    this.ctx.lineTo(uo.x, uo.y + size/2);
+                } else if (uo.shape === 'Z') {
+                    this.ctx.moveTo(uo.x - size/2, uo.y - size/2);
+                    this.ctx.lineTo(uo.x + size/2, uo.y - size/2);
+                    this.ctx.lineTo(uo.x - size/2, uo.y + size/2);
+                    this.ctx.lineTo(uo.x + size/2, uo.y + size/2);
+                }
+                this.ctx.stroke();
+            },
+
+            // End current trial
+            endTrial() {
+                this.state.isRunning = false;
+
+                // Calculate and store actual bounces
+                const actualBounces = this.calculateBounces();
+                this.data.actualBounces.push(actualBounces);
+
+                // Log the bounce counts properly
+                console.log("Trial ended. Actual bounces:");
+                console.log("  Total:", actualBounces.total);
+                console.log("  Circles:", actualBounces.circles);
+                console.log("  Squares:", actualBounces.squares);
+
+                // Show response input screen
+                this.showResponseInput();
+            },
+
+            // Calculate actual bounces for attended objects
+            calculateBounces() {
+                let totalBounces = 0;
+                let circleBounces = 0;
+                let squareBounces = 0;
+
+                this.objects.forEach(obj => {
+                    if (obj.color === this.state.attendedColor) {
+                        totalBounces += obj.bounces;
+                        if (obj.shape === 'circle') {
+                            circleBounces += obj.circleBounces;
+                        }
+                        if (obj.shape === 'square') {
+                            squareBounces += obj.squareBounces;
+                        }
+                    }
+                });
+
+                return {
+                    total: totalBounces,
+                    circles: circleBounces,
+                    squares: squareBounces
+                };
+            },
+
+            // Show response input section
+            showResponseInput() {
+                this.showScreen('responseScreen');
+
+                if (this.state.countType === 'single') {
+                    document.getElementById('singleCount').classList.remove('hidden');
+                    document.getElementById('dualCount').classList.add('hidden');
+                    document.getElementById('responsePrompt').textContent =
+                        `How many times did ${this.state.attendedColor.toUpperCase()} shapes bounce?`;
+                } else {
+                    document.getElementById('dualCount').classList.remove('hidden');
+                    document.getElementById('singleCount').classList.add('hidden');
+                    document.getElementById('responsePrompt').textContent =
+                        `Enter your counts for ${this.state.attendedColor.toUpperCase()} shapes:`;
+                }
+            },
+
+            // Submit counting response
+            submitResponse() {
+                let response = {};
+
+                if (this.state.countType === 'single') {
+                    response.total = parseInt(document.getElementById('countInput').value) || 0;
+                } else {
+                    response.circles = parseInt(document.getElementById('circleCountInput').value) || 0;
+                    response.squares = parseInt(document.getElementById('squareCountInput').value) || 0;
+                    response.total = response.circles + response.squares;
+                }
+
+                this.data.responses.counts.push(response);
+
+                // Calculate accuracy
+                const trialIndex = this.data.responses.counts.length - 1;
+                const actual = this.data.actualBounces[trialIndex];
+                const accuracy = Math.round((1 - Math.abs(response.total - actual.total) / actual.total) * 100);
+
+                console.log("Response submitted:", response);
+                console.log("Accuracy:", accuracy + "%");
+
+                // Clear inputs
+                document.getElementById('countInput').value = '';
+                document.getElementById('circleCountInput').value = '';
+                document.getElementById('squareCountInput').value = '';
+
+                // Check if this was a critical trial
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                if (trialType === 'critical' || trialType === 'divided') {
+                    this.showNoticeQuestion();
+                } else {
+                    this.nextTrial();
+                }
+            },
+
+            // Show question about noticing unexpected object
+            showNoticeQuestion() {
+                this.showScreen('yesNoScreen');
+                document.getElementById('yesNoQuestion').textContent =
+                    "Did you notice anything unusual or unexpected during the trial?";
+            },
+
+            // Submit yes/no response
+            submitYesNo(answer) {
+                this.data.responses.noticedUnexpected = answer;
+                console.log("Noticed unexpected object:", answer);
+
+                // Show shape selection
+                this.showShapeSelection();
+            },
+
+            // Show shape selection
+            showShapeSelection() {
+                this.showScreen('shapeScreen');
+            },
+
+            // Select a shape
+            selectShape(shape) {
+                // Remove previous selection
+                document.querySelectorAll('.shape-choice').forEach(el => {
+                    el.classList.remove('selected');
+                });
+
+                // Mark new selection
+                event.currentTarget.classList.add('selected');
+                this.selectedShape = shape;
+            },
+
+            // Submit shape choice
+            submitShapeChoice() {
+                this.data.responses.shapeIdentification = this.selectedShape;
+
+                // Check if correct
+                const lastTrial = this.data.trials[this.data.trials.length - 1];
+                const correct = this.selectedShape === lastTrial.unexpectedShape;
+
+                console.log("Shape identified:", this.selectedShape);
+                console.log("Correct shape was:", lastTrial.unexpectedShape);
+                console.log("Identification correct:", correct);
+
+                this.nextTrial();
+            },
+
+            // Move to next trial or end experiment
+            nextTrial() {
+                this.state.currentTrial++;
+
+                if (this.state.currentTrial < this.state.trialSequence.length) {
+                    this.showInstructions();
+                } else {
+                    this.endExperiment();
+                }
+            },
+
+            // End the experiment
+            endExperiment() {
+                this.showScreen('finalScreen');
+                this.showData();
+            },
+
+            // Show collected data (for educational purposes)
+            showData() {
+                const dataOutput = document.getElementById('dataOutput');
+
+                // Create summary
+                const summary = {
+                    condition: this.state.countType,
+                    trials_completed: this.state.currentTrial,
+                    noticed_unexpected: this.data.responses.noticedUnexpected,
+                    shape_identification: this.data.responses.shapeIdentification,
+                    actual_shape: this.data.trials.length > 0 ? this.data.trials[0].unexpectedShape : null,
+                    accuracy_per_trial: this.data.responses.counts.map((response, i) => {
+                        const actual = this.data.actualBounces[i];
+                        return {
+                            trial: i + 1,
+                            responded: response.total,
+                            actual: actual.total,
+                            accuracy: Math.round((1 - Math.abs(response.total - actual.total) / actual.total) * 100) + '%'
+                        };
+                    })
+                };
+
+                dataOutput.textContent = JSON.stringify(summary, null, 2);
+
+                console.log("Experiment complete!");
+                console.log("Full data:", this.data);
+                console.log("Summary:", summary);
+            }
+        };
+
+        // ============================================================
+        // INITIALIZATION
+        // Start the experiment when the page loads
+        // ============================================================
+        window.onload = function() {
+            console.log("Page loaded - Experiment ready!");
+            console.log("Click 'Start Experiment' to begin");
+        };
+    </script>
+</body>
+</html>
