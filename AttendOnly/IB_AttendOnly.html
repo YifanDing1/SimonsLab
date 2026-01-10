@@ -128,6 +128,10 @@
             <input type="hidden" name="duration" value="">
             <input type="hidden" name="background_color" value="">
             <input type="hidden" name="attended_color" value="">
+            <input type="hidden" name="bounce_angle_variation" value="">
+            <input type="hidden" name="perturbation_interval_min" value="">
+            <input type="hidden" name="perturbation_interval_max" value="">
+            <input type="hidden" name="perturbation_amount" value="">
             <input type="hidden" name="unexpected_object_color" value="">
             <input type="hidden" name="unexpected_object_shape" value="">
             <input type="hidden" name="unexpected_object_direction" value="">
@@ -272,7 +276,14 @@
                 canvasWidth: 666,
                 canvasHeight: 546,
                 objectSize: 44,
-                backgroundColor: '#7676A7'
+                backgroundColor: '#7676A7',
+
+                // Motion variation settings
+                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (±45° = 45-135° range)
+                minAngleFromWall: 25,        // Minimum degrees from wall to prevent shallow/parallel movement
+                perturbationIntervalMin: 500,  // Min milliseconds between random direction changes
+                perturbationIntervalMax: 1000, // Max milliseconds between random direction changes
+                perturbationAmount: 30       // Max degrees for random perturbation (±30°)
             },
 
             // State tracking
@@ -370,38 +381,32 @@
                 document.getElementById(screenId).classList.remove('hidden');
             },
 
-            // Get color name in uppercase for instructions
-            getColorText() {
-                return this.state.attendedColor.toUpperCase();
-            },
-
             // Show instructions based on trial type
             showInstructions() {
                 this.showScreen('instructionScreen');
                 const instructions = document.getElementById('instructions');
                 const trialType = this.state.trialSequence[this.state.currentTrial];
-                const colorText = this.getColorText();
 
                 let message = "";
                 if (this.state.currentTrial === 0) {
                     // Initial instructions
-                    message = `<p>In this task, 4 ${colorText.toLowerCase()} circles will appear inside a colored rectangle.
+                    message = `<p>In this task, 4 circles will appear inside a colored rectangle.
                               After a moment, they will begin moving and bouncing off the sides of the rectangle.</p>
-                              <p>Please count the total number of times the ${colorText} CIRCLES bounce off
+                              <p>Please count the total number of times the circles bounce off
                               the sides of the rectangle.</p>
                               <p>You will be asked to report your total count.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'practice') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the ${colorText} CIRCLES bounce off the sides of the rectangle.</p>
+                              number of times the circles bounce off the sides of the rectangle.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'critical') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the ${colorText} CIRCLES bounce off the sides of the rectangle.</p>
+                              number of times the circles bounce off the sides of the rectangle.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'divided') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the ${colorText} CIRCLES bounce off the sides of the rectangle.</p>
+                              number of times the circles bounce off the sides of the rectangle.</p>
                               <p><strong>NEW REQUIREMENT:</strong> This time, you should <strong>also look</strong>
                               for the presence of an extra object.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
@@ -436,6 +441,55 @@
                 }, this.config.trialDuration);
             },
 
+            // Helper: Rotate velocity vector by angle (in degrees)
+            rotateVelocity(vx, vy, angleDegrees) {
+                const angleRadians = angleDegrees * (Math.PI / 180);
+                const cos = Math.cos(angleRadians);
+                const sin = Math.sin(angleRadians);
+                return {
+                    vx: vx * cos - vy * sin,
+                    vy: vx * sin + vy * cos
+                };
+            },
+
+            // Helper: Get random angle within range (±maxDegrees)
+            getRandomAngle(maxDegrees) {
+                return (Math.random() * 2 - 1) * maxDegrees; // Returns -maxDegrees to +maxDegrees
+            },
+
+            // Helper: Ensure velocity has minimum angle from wall to prevent shallow/parallel movement
+            ensureMinAngleFromWall(vx, vy, wallType) {
+                const speed = Math.sqrt(vx * vx + vy * vy);
+                const minAngleRad = this.config.minAngleFromWall * (Math.PI / 180);
+                const minComponent = speed * Math.sin(minAngleRad);
+
+                if (wallType === 'horizontal') {
+                    // For horizontal walls (top/bottom), ensure |vy| is sufficient
+                    if (Math.abs(vy) < minComponent) {
+                        const signY = vy >= 0 ? 1 : -1;
+                        const signX = vx >= 0 ? 1 : -1;
+                        vy = signY * minComponent;
+                        vx = signX * Math.sqrt(speed * speed - vy * vy);
+                    }
+                } else if (wallType === 'vertical') {
+                    // For vertical walls (left/right), ensure |vx| is sufficient
+                    if (Math.abs(vx) < minComponent) {
+                        const signX = vx >= 0 ? 1 : -1;
+                        const signY = vy >= 0 ? 1 : -1;
+                        vx = signX * minComponent;
+                        vy = signY * Math.sqrt(speed * speed - vx * vx);
+                    }
+                }
+
+                return { vx, vy };
+            },
+
+            // Helper: Get random perturbation interval between min and max
+            getRandomPerturbationInterval() {
+                return this.config.perturbationIntervalMin +
+                       Math.random() * (this.config.perturbationIntervalMax - this.config.perturbationIntervalMin);
+            },
+
             // Create moving objects - all same color (randomly white or black)
             createObjects() {
                 this.objects = [];
@@ -447,6 +501,9 @@
                     const xDir = Math.random() < 0.5 ? 1 : -1;
                     const yDir = Math.random() < 0.5 ? 1 : -1;
 
+                    // Random initial interval and staggered start time
+                    const initialInterval = this.getRandomPerturbationInterval();
+
                     this.objects.push({
                         x: Math.random() * (this.config.canvasWidth - margin * 2) + margin,
                         y: Math.random() * (this.config.canvasHeight - margin * 2) + margin,
@@ -454,7 +511,9 @@
                         vy: speed * yDir,
                         color: this.state.attendedColor,  // Use the randomly assigned color
                         size: this.config.objectSize,
-                        bounces: 0
+                        bounces: 0,
+                        timeSincePerturbation: Math.random() * initialInterval, // Stagger initial perturbations
+                        nextPerturbationAt: initialInterval // Random interval for this object
                     });
                 }
             },
@@ -521,7 +580,7 @@
 
                 // Update and draw regular objects (on top of UO)
                 this.objects.forEach(obj => {
-                    this.updateObject(obj, timeMultiplier);
+                    this.updateObject(obj, timeMultiplier, deltaTime);
                     this.drawObject(obj);
                 });
 
@@ -530,26 +589,75 @@
             },
 
             // Update object position with time-based movement
-            updateObject(obj, timeMultiplier) {
+            updateObject(obj, timeMultiplier, deltaTime) {
                 // Apply time multiplier for consistent speed across all frame rates
                 obj.x += obj.vx * timeMultiplier;
                 obj.y += obj.vy * timeMultiplier;
 
                 const radius = obj.size / 2;
+                let bouncedX = false;
+                let bouncedY = false;
 
-                // Wall collisions
+                // Wall collisions with variable bounce angles
                 if (obj.x - radius <= 0 || obj.x + radius >= this.config.canvasWidth) {
+                    // Reverse x direction
                     obj.vx *= -1;
+
+                    // Keep in bounds
                     if (obj.x - radius <= 0) obj.x = radius;
                     if (obj.x + radius >= this.config.canvasWidth) obj.x = this.config.canvasWidth - radius;
+
+                    // Add random angle variation to bounce
+                    const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
+                    const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
+                    obj.vx = rotated.vx;
+                    obj.vy = rotated.vy;
+
+                    // Ensure minimum angle from wall (vertical wall = left/right)
+                    const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'vertical');
+                    obj.vx = adjusted.vx;
+                    obj.vy = adjusted.vy;
+
+                    bouncedX = true;
                     if (!obj.isUnexpected) obj.bounces++;
                 }
 
                 if (obj.y - radius <= 0 || obj.y + radius >= this.config.canvasHeight) {
+                    // Reverse y direction
                     obj.vy *= -1;
+
+                    // Keep in bounds
                     if (obj.y - radius <= 0) obj.y = radius;
                     if (obj.y + radius >= this.config.canvasHeight) obj.y = this.config.canvasHeight - radius;
+
+                    // Add random angle variation to bounce (only if we didn't already rotate from x-bounce)
+                    if (!bouncedX) {
+                        const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
+                        const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
+                        obj.vx = rotated.vx;
+                        obj.vy = rotated.vy;
+                    }
+
+                    // Ensure minimum angle from wall (horizontal wall = top/bottom)
+                    const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'horizontal');
+                    obj.vx = adjusted.vx;
+                    obj.vy = adjusted.vy;
+
+                    bouncedY = true;
                     if (!obj.isUnexpected) obj.bounces++;
+                }
+
+                // Random perturbation based on elapsed time (not frames)
+                if (!bouncedX && !bouncedY) {
+                    obj.timeSincePerturbation += deltaTime;
+                    if (obj.timeSincePerturbation >= obj.nextPerturbationAt) {
+                        const perturbation = this.getRandomAngle(this.config.perturbationAmount);
+                        const rotated = this.rotateVelocity(obj.vx, obj.vy, perturbation);
+                        obj.vx = rotated.vx;
+                        obj.vy = rotated.vy;
+                        obj.timeSincePerturbation = 0;
+                        obj.nextPerturbationAt = this.getRandomPerturbationInterval(); // New random interval
+                    }
                 }
             },
 
@@ -611,9 +719,8 @@
             // Show response input
             showResponseInput() {
                 this.showScreen('responseScreen');
-                const colorText = this.getColorText();
                 document.getElementById('responsePrompt').textContent =
-                    `In the box below, please enter the total number of times the ${colorText} CIRCLES bounced off the edges of the rectangle.`;
+                    `In the box below, please enter the total number of times the circles bounced off the edges of the rectangle.`;
                 document.getElementById('countInput').value = '';
                 document.getElementById('countInput').focus();
             },
@@ -772,6 +879,10 @@
                 form.duration.value = this.data.duration;
                 form.background_color.value = this.config.backgroundColor;
                 form.attended_color.value = this.state.attendedColor;
+                form.bounce_angle_variation.value = this.config.bounceAngleVariation;
+                form.perturbation_interval_min.value = this.config.perturbationIntervalMin;
+                form.perturbation_interval_max.value = this.config.perturbationIntervalMax;
+                form.perturbation_amount.value = this.config.perturbationAmount;
                 form.unexpected_object_color.value = this.data.unexpectedObjectColor || '';
                 form.unexpected_object_shape.value = this.data.unexpectedObjectShape || '';
                 form.unexpected_object_direction.value = this.data.unexpectedObjectDirection || '';
@@ -813,6 +924,9 @@
                 console.log("Subject:", this.data.subjectCode);
                 console.log("Duration:", this.data.duration, "seconds");
                 console.log("Attended color:", this.state.attendedColor);
+                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "°");
+                console.log("Motion settings - Perturbation interval:", this.config.perturbationIntervalMin + "-" + this.config.perturbationIntervalMax, "ms");
+                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "°");
                 console.log("Bounces:", this.data.trials.bounces);
                 console.log("Counts:", this.data.trials.counts);
                 console.log("Accuracy:", this.data.trials.accuracy);
