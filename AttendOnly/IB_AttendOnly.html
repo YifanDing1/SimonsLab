@@ -129,9 +129,13 @@
             <input type="hidden" name="background_color" value="">
             <input type="hidden" name="attended_color" value="">
             <input type="hidden" name="bounce_angle_variation" value="">
+            <input type="hidden" name="min_angle_from_wall" value="">
             <input type="hidden" name="perturbation_interval_min" value="">
             <input type="hidden" name="perturbation_interval_max" value="">
             <input type="hidden" name="perturbation_amount" value="">
+            <input type="hidden" name="speed_min" value="">
+            <input type="hidden" name="speed_max" value="">
+            <input type="hidden" name="unexpected_object_speed" value="">
             <input type="hidden" name="unexpected_object_color" value="">
             <input type="hidden" name="unexpected_object_shape" value="">
             <input type="hidden" name="unexpected_object_direction" value="">
@@ -283,7 +287,10 @@
                 minAngleFromWall: 25,        // Minimum degrees from wall to prevent shallow/parallel movement
                 perturbationIntervalMin: 500,  // Min milliseconds between random direction changes
                 perturbationIntervalMax: 1000, // Max milliseconds between random direction changes
-                perturbationAmount: 30       // Max degrees for random perturbation (±30°)
+                perturbationAmount: 30,      // Max degrees for random perturbation (±30°)
+                speedMin: 1.73,              // Minimum speed (pixels per frame at 60fps)
+                speedMax: 3.17,              // Maximum speed (pixels per frame at 60fps)
+                unexpectedObjectSpeed: 1.44  // UO speed (pixels per frame at 60fps)
             },
 
             // State tracking
@@ -303,7 +310,7 @@
 
             // Data collection
             data: {
-                studyName: 'pilot2',
+                studyName: 'pilot3',
                 subjectCode: null,
                 startTime: '',
                 endTime: '',
@@ -490,14 +497,19 @@
                        Math.random() * (this.config.perturbationIntervalMax - this.config.perturbationIntervalMin);
             },
 
+            // Helper: Get random speed between min and max
+            getRandomSpeed() {
+                return this.config.speedMin +
+                       Math.random() * (this.config.speedMax - this.config.speedMin);
+            },
+
             // Create moving objects - all same color (randomly white or black)
             createObjects() {
                 this.objects = [];
 
                 for (let i = 0; i < this.config.numObjects; i++) {
                     const margin = this.config.objectSize;
-                    // Velocity scaled for 60fps to match original 37fps speed
-                    const speed = Math.random() * 1.0 + 1.2;
+                    const speed = this.getRandomSpeed();
                     const xDir = Math.random() < 0.5 ? 1 : -1;
                     const yDir = Math.random() < 0.5 ? 1 : -1;
 
@@ -532,7 +544,7 @@
 
                 const direction = this.data.unexpectedObjectDirection === 'LeftToRight' ? 1 : -1;
                 const startX = direction === 1 ? -30 : this.config.canvasWidth + 30;
-                const speed = 1.2;
+                const speed = this.config.unexpectedObjectSpeed;
 
                 this.unexpectedObject = {
                     x: startX,
@@ -651,10 +663,18 @@
                 if (!bouncedX && !bouncedY) {
                     obj.timeSincePerturbation += deltaTime;
                     if (obj.timeSincePerturbation >= obj.nextPerturbationAt) {
+                        // Change direction
                         const perturbation = this.getRandomAngle(this.config.perturbationAmount);
                         const rotated = this.rotateVelocity(obj.vx, obj.vy, perturbation);
-                        obj.vx = rotated.vx;
-                        obj.vy = rotated.vy;
+
+                        // Change speed - normalize to unit vector then multiply by new speed
+                        const currentSpeed = Math.sqrt(rotated.vx * rotated.vx + rotated.vy * rotated.vy);
+                        const newSpeed = this.getRandomSpeed();
+                        const speedRatio = newSpeed / currentSpeed;
+
+                        obj.vx = rotated.vx * speedRatio;
+                        obj.vy = rotated.vy * speedRatio;
+
                         obj.timeSincePerturbation = 0;
                         obj.nextPerturbationAt = this.getRandomPerturbationInterval(); // New random interval
                     }
@@ -880,9 +900,13 @@
                 form.background_color.value = this.config.backgroundColor;
                 form.attended_color.value = this.state.attendedColor;
                 form.bounce_angle_variation.value = this.config.bounceAngleVariation;
+                form.min_angle_from_wall.value = this.config.minAngleFromWall;
                 form.perturbation_interval_min.value = this.config.perturbationIntervalMin;
                 form.perturbation_interval_max.value = this.config.perturbationIntervalMax;
                 form.perturbation_amount.value = this.config.perturbationAmount;
+                form.speed_min.value = this.config.speedMin;
+                form.speed_max.value = this.config.speedMax;
+                form.unexpected_object_speed.value = this.config.unexpectedObjectSpeed;
                 form.unexpected_object_color.value = this.data.unexpectedObjectColor || '';
                 form.unexpected_object_shape.value = this.data.unexpectedObjectShape || '';
                 form.unexpected_object_direction.value = this.data.unexpectedObjectDirection || '';
@@ -925,8 +949,11 @@
                 console.log("Duration:", this.data.duration, "seconds");
                 console.log("Attended color:", this.state.attendedColor);
                 console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "°");
+                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "°");
                 console.log("Motion settings - Perturbation interval:", this.config.perturbationIntervalMin + "-" + this.config.perturbationIntervalMax, "ms");
                 console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "°");
+                console.log("Motion settings - Speed range:", this.config.speedMin + "-" + this.config.speedMax, "px/frame");
+                console.log("Motion settings - UO speed:", this.config.unexpectedObjectSpeed, "px/frame");
                 console.log("Bounces:", this.data.trials.bounces);
                 console.log("Counts:", this.data.trials.counts);
                 console.log("Accuracy:", this.data.trials.accuracy);
