@@ -85,8 +85,8 @@
                 if (response === "Duplicate Prolific ID") {
                     displayDuplicateMessage();
                 } else {
-                    let nextTaskUrl = "http://simonslab.com/mot/LoadSearchMemory/LoadSearchMemory_Study4.html";
-                    //let nextTaskUrl = "http://localhost/LoadSearchMemory/LoadSearchMemory_Study4.html";
+                    let nextTaskUrl = "http://simonslab.com/mot/LoadSearchMemory/LoadSearchMemory_Study5.html";
+                    //let nextTaskUrl = "http://localhost/LoadSearchMemory/LoadSearchMemory_Study5.html";
                     nextTaskUrl += "?subject_code=" + encodeURIComponent(subject_code);
                     window.location.href = nextTaskUrl;
                 }
@@ -97,7 +97,7 @@
     let instruction = {
         type: jsPsychInstructions,
         pages: function(){
-            pageOne = '<div style="font-size:20px;"><br><br><br>Welcome <br><br>This study examines people\'s perception, attention and memory. <br> You will need to complete a series of tasks and questionnaires. <br>Please read through the instructions before each task carefully to make sure you understand what to do. <br><br> Click \'Start\' to begin the study. <br><br><br></div>'
+            pageOne = '<div style="font-size:20px;"><br><br><br>Welcome <br><br>Please read through the instructions before each task carefully to make sure you understand what to do. <br><br> Click \'Start\' to begin the study. <br><br><br></div>'
             return [pageOne]
         },
         allow_backward: false,
