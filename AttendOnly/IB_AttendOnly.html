@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inattentional Blindness Experiment - Circles Only</title>
+    <title>Inattentional Blindness Experiment - Line Crossing</title>
     <style>
         /* STYLING */
         body {
@@ -128,6 +128,9 @@
             <input type="hidden" name="duration" value="">
             <input type="hidden" name="background_color" value="">
             <input type="hidden" name="attended_color" value="">
+            <input type="hidden" name="line_color" value="">
+            <input type="hidden" name="top_line_position" value="">
+            <input type="hidden" name="bottom_line_position" value="">
             <input type="hidden" name="bounce_angle_variation" value="">
             <input type="hidden" name="min_angle_from_wall" value="">
             <input type="hidden" name="perturbation_interval_min" value="">
@@ -140,21 +143,21 @@
             <input type="hidden" name="unexpected_object_shape" value="">
             <input type="hidden" name="unexpected_object_direction" value="">
             <!-- Trial 1 (Practice 1) -->
-            <input type="hidden" name="trial1_bounces" value="">
+            <input type="hidden" name="trial1_crossings" value="">
             <input type="hidden" name="trial1_count" value="">
             <input type="hidden" name="trial1_accuracy" value="">
             <!-- Trial 2 (Practice 2) -->
-            <input type="hidden" name="trial2_bounces" value="">
+            <input type="hidden" name="trial2_crossings" value="">
             <input type="hidden" name="trial2_count" value="">
             <input type="hidden" name="trial2_accuracy" value="">
             <!-- Trial 3 (Critical) -->
-            <input type="hidden" name="trial3_bounces" value="">
+            <input type="hidden" name="trial3_crossings" value="">
             <input type="hidden" name="trial3_count" value="">
             <input type="hidden" name="trial3_accuracy" value="">
             <input type="hidden" name="trial3_noticed" value="">
             <input type="hidden" name="trial3_shape_choice" value="">
             <!-- Trial 4 (Divided) -->
-            <input type="hidden" name="trial4_bounces" value="">
+            <input type="hidden" name="trial4_crossings" value="">
             <input type="hidden" name="trial4_count" value="">
             <input type="hidden" name="trial4_accuracy" value="">
             <input type="hidden" name="trial4_noticed" value="">
@@ -185,8 +188,8 @@
             <div id="responseSection" class="response-section">
                 <h2 id="responsePrompt">Enter your count:</h2>
                 <div id="singleCount">
-                    <label>Total bounces: </label>
-                    <input type="number" id="countInput" min="0" max="100">
+                    <label>Total crossings: </label>
+                    <input type="number" id="countInput" min="0" max="200">
                     <br><br>
                     <button id="submitCount" onclick="experiment.submitResponse()">Submit</button>
                 </div>
@@ -270,6 +273,7 @@
         // ============================================================
         // EXPERIMENT CONTROLLER
         // 4 circles that are randomly either all white or all black
+        // Counts crossings of two horizontal lines (at 25% and 75% height)
         // ============================================================
         const experiment = {
             // Configuration
@@ -282,15 +286,21 @@
                 objectSize: 44,
                 backgroundColor: '#7676A7',
 
+                // Line configuration
+                topLinePosition: 0.25,       // 25% from top
+                bottomLinePosition: 0.75,    // 75% from top
+                lineColor: '#FFFFFF',        // White lines
+                lineWidth: 2,                // Thin line (2 pixels)
+
                 // Motion variation settings
-                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (±45° = 45-135° range)
-                minAngleFromWall: 25,        // Minimum degrees from wall to prevent shallow/parallel movement
-                perturbationIntervalMin: 500,  // Min milliseconds between random direction changes
-                perturbationIntervalMax: 1000, // Max milliseconds between random direction changes
-                perturbationAmount: 30,      // Max degrees for random perturbation (±30°)
-                speedMin: 1.73,              // Minimum speed (pixels per frame at 60fps)
-                speedMax: 3.17,              // Maximum speed (pixels per frame at 60fps)
-                unexpectedObjectSpeed: 1.44  // UO speed (pixels per frame at 60fps)
+                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection
+                minAngleFromWall: 25,        // Minimum degrees from wall
+                perturbationIntervalMin: 500,
+                perturbationIntervalMax: 1000,
+                perturbationAmount: 30,
+                speedMin: 1.73,
+                speedMax: 3.17,
+                unexpectedObjectSpeed: 1.44
             },
 
             // State tracking
@@ -310,7 +320,7 @@
 
             // Data collection
             data: {
-                studyName: 'pilot3',
+                studyName: 'pilot3_linecrossing',
                 subjectCode: null,
                 startTime: '',
                 endTime: '',
@@ -319,7 +329,7 @@
                 unexpectedObjectShape: null,
                 unexpectedObjectDirection: null,
                 trials: {
-                    bounces: [],
+                    crossings: [],   // Changed from bounces to crossings
                     counts: [],
                     accuracy: []
                 },
@@ -338,7 +348,11 @@
                 this.ctx = this.canvas.getContext('2d');
                 this.objects = [];
                 this.unexpectedObject = null;
-                this.lastFrameTime = null; // For delta time calculation
+                this.lastFrameTime = null;
+
+                // Calculate actual line Y positions
+                this.topLineY = this.config.canvasHeight * this.config.topLinePosition;
+                this.bottomLineY = this.config.canvasHeight * this.config.bottomLinePosition;
 
                 // Get subject_code from URL
                 const urlParams = new URLSearchParams(window.location.search);
@@ -354,7 +368,8 @@
                 this.data.startTime = this.formatDate(this.timing.startTime);
 
                 console.log("Experiment initialized - 4", this.state.attendedColor, "circles");
-                console.log("Using delta-time animation for consistent speed across all devices");
+                console.log("Line positions: top =", this.topLineY, "px, bottom =", this.bottomLineY, "px");
+                console.log("Counting line crossings (both directions)");
             },
 
             // Format date for database (CST timezone)
@@ -375,7 +390,7 @@
                 return `${year}/${month}/${day} ${timePart}`;
             },
 
-            // Start the experiment (called from first instruction button)
+            // Start the experiment
             start() {
                 this.startTrial();
             },
@@ -397,23 +412,23 @@
                 let message = "";
                 if (this.state.currentTrial === 0) {
                     // Initial instructions
-                    message = `<p>In this task, 4 circles will appear inside a colored rectangle.
+                    message = `<p>In this task, 4 circles will appear inside a colored rectangle with two horizontal lines.
                               After a moment, they will begin moving and bouncing off the sides of the rectangle.</p>
-                              <p>Please count the total number of times the circles bounce off
-                              the sides of the rectangle.</p>
+                              <p>Please count the total number of times any circle crosses either of the two horizontal lines.
+                              Count crossings in both directions (up-to-down and down-to-up).</p>
                               <p>You will be asked to report your total count.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'practice') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                              number of times any circle crosses either of the two horizontal lines.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'critical') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                              number of times any circle crosses either of the two horizontal lines.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'divided') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                              number of times any circle crosses either of the two horizontal lines.</p>
                               <p><strong>NEW REQUIREMENT:</strong> This time, you should <strong>also look</strong>
                               for the presence of an extra object.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
@@ -430,7 +445,7 @@
                 this.showScreen('canvasScreen');
                 this.createObjects();
                 this.state.isRunning = true;
-                this.lastFrameTime = null; // Reset for delta time calculation
+                this.lastFrameTime = null;
 
                 // Set up unexpected object for critical/divided trials
                 if (trialType === 'critical' || trialType === 'divided') {
@@ -439,7 +454,7 @@
                     }, this.config.unexpectedObjectStart);
                 }
 
-                // Start animation with requestAnimationFrame timestamp
+                // Start animation
                 requestAnimationFrame((time) => this.animate(time));
 
                 // End trial after duration
@@ -459,19 +474,18 @@
                 };
             },
 
-            // Helper: Get random angle within range (±maxDegrees)
+            // Helper: Get random angle within range
             getRandomAngle(maxDegrees) {
-                return (Math.random() * 2 - 1) * maxDegrees; // Returns -maxDegrees to +maxDegrees
+                return (Math.random() * 2 - 1) * maxDegrees;
             },
 
-            // Helper: Ensure velocity has minimum angle from wall to prevent shallow/parallel movement
+            // Helper: Ensure velocity has minimum angle from wall
             ensureMinAngleFromWall(vx, vy, wallType) {
                 const speed = Math.sqrt(vx * vx + vy * vy);
                 const minAngleRad = this.config.minAngleFromWall * (Math.PI / 180);
                 const minComponent = speed * Math.sin(minAngleRad);
 
                 if (wallType === 'horizontal') {
-                    // For horizontal walls (top/bottom), ensure |vy| is sufficient
                     if (Math.abs(vy) < minComponent) {
                         const signY = vy >= 0 ? 1 : -1;
                         const signX = vx >= 0 ? 1 : -1;
@@ -479,7 +493,6 @@
                         vx = signX * Math.sqrt(speed * speed - vy * vy);
                     }
                 } else if (wallType === 'vertical') {
-                    // For vertical walls (left/right), ensure |vx| is sufficient
                     if (Math.abs(vx) < minComponent) {
                         const signX = vx >= 0 ? 1 : -1;
                         const signY = vy >= 0 ? 1 : -1;
@@ -491,19 +504,19 @@
                 return { vx, vy };
             },
 
-            // Helper: Get random perturbation interval between min and max
+            // Helper: Get random perturbation interval
             getRandomPerturbationInterval() {
                 return this.config.perturbationIntervalMin +
                        Math.random() * (this.config.perturbationIntervalMax - this.config.perturbationIntervalMin);
             },
 
-            // Helper: Get random speed between min and max
+            // Helper: Get random speed
             getRandomSpeed() {
                 return this.config.speedMin +
                        Math.random() * (this.config.speedMax - this.config.speedMin);
             },
 
-            // Create moving objects - all same color (randomly white or black)
+            // Create moving objects
             createObjects() {
                 this.objects = [];
 
@@ -513,19 +526,22 @@
                     const xDir = Math.random() < 0.5 ? 1 : -1;
                     const yDir = Math.random() < 0.5 ? 1 : -1;
 
-                    // Random initial interval and staggered start time
                     const initialInterval = this.getRandomPerturbationInterval();
+
+                    // Random starting Y position
+                    const startY = Math.random() * (this.config.canvasHeight - margin * 2) + margin;
 
                     this.objects.push({
                         x: Math.random() * (this.config.canvasWidth - margin * 2) + margin,
-                        y: Math.random() * (this.config.canvasHeight - margin * 2) + margin,
+                        y: startY,
+                        prevY: startY,  // Track previous Y position for crossing detection
                         vx: speed * xDir,
                         vy: speed * yDir,
-                        color: this.state.attendedColor,  // Use the randomly assigned color
+                        color: this.state.attendedColor,
                         size: this.config.objectSize,
-                        bounces: 0,
-                        timeSincePerturbation: Math.random() * initialInterval, // Stagger initial perturbations
-                        nextPerturbationAt: initialInterval // Random interval for this object
+                        crossings: 0,   // Count line crossings instead of bounces
+                        timeSincePerturbation: Math.random() * initialInterval,
+                        nextPerturbationAt: initialInterval
                     });
                 }
             },
@@ -534,13 +550,11 @@
             addUnexpectedObject() {
                 const trialType = this.state.trialSequence[this.state.currentTrial];
 
-                // For critical trial, randomly choose direction
                 if (trialType === 'critical') {
-                    this.data.unexpectedObjectColor = '#777777'; // Gray
+                    this.data.unexpectedObjectColor = '#777777';
                     this.data.unexpectedObjectShape = 'cross';
                     this.data.unexpectedObjectDirection = Math.random() < 0.5 ? 'LeftToRight' : 'RightToLeft';
                 }
-                // For divided trial, use same direction as critical
 
                 const direction = this.data.unexpectedObjectDirection === 'LeftToRight' ? 1 : -1;
                 const startX = direction === 1 ? -30 : this.config.canvasWidth + 30;
@@ -560,29 +574,27 @@
                            "Direction:", this.data.unexpectedObjectDirection);
             },
 
-            // Animation loop with delta time for consistent speed across all devices
+            // Animation loop with delta time
             animate(currentTime) {
                 if (!this.state.isRunning) return;
 
-                // Calculate delta time (time since last frame in ms)
                 if (!this.lastFrameTime) {
                     this.lastFrameTime = currentTime;
                 }
                 const deltaTime = currentTime - this.lastFrameTime;
                 this.lastFrameTime = currentTime;
 
-                // Target 60fps - calculate time multiplier
-                // If running at 144fps, deltaTime ~7ms, multiplier ~0.42
-                // If running at 60fps, deltaTime ~16.67ms, multiplier ~1.0
-                // If running at 30fps, deltaTime ~33ms, multiplier ~2.0
-                const targetFrameTime = 1000 / 60; // 16.67ms for 60fps
+                const targetFrameTime = 1000 / 60;
                 const timeMultiplier = deltaTime / targetFrameTime;
 
                 // Clear canvas
                 this.ctx.fillStyle = this.config.backgroundColor;
                 this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
 
-                // Draw unexpected object FIRST (so it appears behind circles)
+                // Draw the two horizontal lines
+                this.drawLines();
+
+                // Draw unexpected object FIRST (behind circles)
                 if (this.unexpectedObject) {
                     this.updateUnexpectedObject(timeMultiplier);
                 }
@@ -590,7 +602,7 @@
                     this.drawCross(this.unexpectedObject);
                 }
 
-                // Update and draw regular objects (on top of UO)
+                // Update and draw regular objects
                 this.objects.forEach(obj => {
                     this.updateObject(obj, timeMultiplier, deltaTime);
                     this.drawObject(obj);
@@ -600,93 +612,105 @@
                 requestAnimationFrame((time) => this.animate(time));
             },
 
-            // Update object position with time-based movement
+            // Draw the two horizontal lines
+            drawLines() {
+                this.ctx.strokeStyle = this.config.lineColor;
+                this.ctx.lineWidth = this.config.lineWidth;
+
+                // Top line (at 25%)
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.topLineY);
+                this.ctx.lineTo(this.config.canvasWidth, this.topLineY);
+                this.ctx.stroke();
+
+                // Bottom line (at 75%)
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, this.bottomLineY);
+                this.ctx.lineTo(this.config.canvasWidth, this.bottomLineY);
+                this.ctx.stroke();
+            },
+
+            // Check if object crossed a line (returns true if crossed)
+            checkLineCrossing(prevY, currentY, lineY) {
+                // Check if the object crossed the line in either direction
+                // Crossed from above to below: prevY < lineY && currentY >= lineY
+                // Crossed from below to above: prevY > lineY && currentY <= lineY
+                return (prevY < lineY && currentY >= lineY) || (prevY > lineY && currentY <= lineY);
+            },
+
+            // Update object position
             updateObject(obj, timeMultiplier, deltaTime) {
-                // Apply time multiplier for consistent speed across all frame rates
+                // Store previous Y for crossing detection
+                obj.prevY = obj.y;
+
+                // Apply movement
                 obj.x += obj.vx * timeMultiplier;
                 obj.y += obj.vy * timeMultiplier;
 
                 const radius = obj.size / 2;
-                let bouncedX = false;
-                let bouncedY = false;
 
-                // Wall collisions with variable bounce angles
+                // Check line crossings (using center of circle)
+                if (this.checkLineCrossing(obj.prevY, obj.y, this.topLineY)) {
+                    obj.crossings++;
+                }
+                if (this.checkLineCrossing(obj.prevY, obj.y, this.bottomLineY)) {
+                    obj.crossings++;
+                }
+
+                // Wall collisions (still bounce off walls, just don't count)
                 if (obj.x - radius <= 0 || obj.x + radius >= this.config.canvasWidth) {
-                    // Reverse x direction
                     obj.vx *= -1;
-
-                    // Keep in bounds
                     if (obj.x - radius <= 0) obj.x = radius;
                     if (obj.x + radius >= this.config.canvasWidth) obj.x = this.config.canvasWidth - radius;
 
-                    // Add random angle variation to bounce
                     const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
                     const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
                     obj.vx = rotated.vx;
                     obj.vy = rotated.vy;
 
-                    // Ensure minimum angle from wall (vertical wall = left/right)
                     const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'vertical');
                     obj.vx = adjusted.vx;
                     obj.vy = adjusted.vy;
-
-                    bouncedX = true;
-                    if (!obj.isUnexpected) obj.bounces++;
                 }
 
                 if (obj.y - radius <= 0 || obj.y + radius >= this.config.canvasHeight) {
-                    // Reverse y direction
                     obj.vy *= -1;
-
-                    // Keep in bounds
                     if (obj.y - radius <= 0) obj.y = radius;
                     if (obj.y + radius >= this.config.canvasHeight) obj.y = this.config.canvasHeight - radius;
 
-                    // Add random angle variation to bounce (only if we didn't already rotate from x-bounce)
-                    if (!bouncedX) {
-                        const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
-                        const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
-                        obj.vx = rotated.vx;
-                        obj.vy = rotated.vy;
-                    }
+                    const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
+                    const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
+                    obj.vx = rotated.vx;
+                    obj.vy = rotated.vy;
 
-                    // Ensure minimum angle from wall (horizontal wall = top/bottom)
                     const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'horizontal');
                     obj.vx = adjusted.vx;
                     obj.vy = adjusted.vy;
-
-                    bouncedY = true;
-                    if (!obj.isUnexpected) obj.bounces++;
                 }
 
-                // Random perturbation based on elapsed time (not frames)
-                if (!bouncedX && !bouncedY) {
-                    obj.timeSincePerturbation += deltaTime;
-                    if (obj.timeSincePerturbation >= obj.nextPerturbationAt) {
-                        // Change direction
-                        const perturbation = this.getRandomAngle(this.config.perturbationAmount);
-                        const rotated = this.rotateVelocity(obj.vx, obj.vy, perturbation);
+                // Random perturbation
+                obj.timeSincePerturbation += deltaTime;
+                if (obj.timeSincePerturbation >= obj.nextPerturbationAt) {
+                    const perturbation = this.getRandomAngle(this.config.perturbationAmount);
+                    const rotated = this.rotateVelocity(obj.vx, obj.vy, perturbation);
 
-                        // Change speed - normalize to unit vector then multiply by new speed
-                        const currentSpeed = Math.sqrt(rotated.vx * rotated.vx + rotated.vy * rotated.vy);
-                        const newSpeed = this.getRandomSpeed();
-                        const speedRatio = newSpeed / currentSpeed;
+                    const currentSpeed = Math.sqrt(rotated.vx * rotated.vx + rotated.vy * rotated.vy);
+                    const newSpeed = this.getRandomSpeed();
+                    const speedRatio = newSpeed / currentSpeed;
 
-                        obj.vx = rotated.vx * speedRatio;
-                        obj.vy = rotated.vy * speedRatio;
+                    obj.vx = rotated.vx * speedRatio;
+                    obj.vy = rotated.vy * speedRatio;
 
-                        obj.timeSincePerturbation = 0;
-                        obj.nextPerturbationAt = this.getRandomPerturbationInterval(); // New random interval
-                    }
+                    obj.timeSincePerturbation = 0;
+                    obj.nextPerturbationAt = this.getRandomPerturbationInterval();
                 }
             },
 
-            // Update unexpected object with time-based movement
+            // Update unexpected object
             updateUnexpectedObject(timeMultiplier) {
                 if (this.unexpectedObject) {
                     this.unexpectedObject.x += this.unexpectedObject.vx * timeMultiplier;
 
-                    // Remove when off screen
                     if (this.unexpectedObject.vx > 0 && this.unexpectedObject.x > this.config.canvasWidth + 30) {
                         this.unexpectedObject = null;
                     } else if (this.unexpectedObject.vx < 0 && this.unexpectedObject.x < -30) {
@@ -709,10 +733,8 @@
                 this.ctx.beginPath();
                 this.ctx.strokeStyle = obj.color;
                 this.ctx.lineWidth = obj.size / 4;
-                // Draw horizontal line
                 this.ctx.moveTo(obj.x - obj.size / 2, obj.y);
                 this.ctx.lineTo(obj.x + obj.size / 2, obj.y);
-                // Draw vertical line
                 this.ctx.moveTo(obj.x, obj.y - obj.size / 2);
                 this.ctx.lineTo(obj.x, obj.y + obj.size / 2);
                 this.ctx.stroke();
@@ -724,14 +746,14 @@
                 this.state.isRunning = false;
                 this.unexpectedObject = null;
 
-                // Calculate bounces
-                let totalBounces = 0;
+                // Calculate total crossings
+                let totalCrossings = 0;
                 this.objects.forEach(obj => {
-                    totalBounces += obj.bounces;
+                    totalCrossings += obj.crossings;
                 });
 
-                this.data.trials.bounces.push(totalBounces);
-                console.log("Trial", this.state.currentTrial + 1, "- Actual bounces:", totalBounces);
+                this.data.trials.crossings.push(totalCrossings);
+                console.log("Trial", this.state.currentTrial + 1, "- Actual crossings:", totalCrossings);
 
                 this.showResponseInput();
             },
@@ -740,7 +762,7 @@
             showResponseInput() {
                 this.showScreen('responseScreen');
                 document.getElementById('responsePrompt').textContent =
-                    `In the box below, please enter the total number of times the circles bounced off the edges of the rectangle.`;
+                    `In the box below, please enter the total number of times the circles crossed either of the two horizontal lines.`;
                 document.getElementById('countInput').value = '';
                 document.getElementById('countInput').focus();
             },
@@ -750,9 +772,8 @@
                 const count = parseInt(document.getElementById('countInput').value) || 0;
                 this.data.trials.counts.push(count);
 
-                // Calculate accuracy
                 const trialIndex = this.data.trials.counts.length - 1;
-                const actual = this.data.trials.bounces[trialIndex];
+                const actual = this.data.trials.crossings[trialIndex];
                 const percentError = Math.abs(count - actual) / actual * 100;
                 const accuracy = Math.max(0, Math.min(100, 100 - percentError));
                 this.data.trials.accuracy.push(parseFloat(accuracy.toFixed(2)));
@@ -761,9 +782,7 @@
 
                 const trialType = this.state.trialSequence[this.state.currentTrial];
 
-                if (trialType === 'critical') {
-                    this.showNoticeQuestion();
-                } else if (trialType === 'divided') {
+                if (trialType === 'critical' || trialType === 'divided') {
                     this.showNoticeQuestion();
                 } else {
                     this.nextTrial();
@@ -798,7 +817,6 @@
             // Show shape selection
             showShapeSelection() {
                 this.showScreen('shapeScreen');
-                // Clear previous selection
                 document.querySelectorAll('#shapeSection .shape-choice').forEach(el => {
                     el.classList.remove('selected');
                 });
@@ -843,7 +861,6 @@
 
             // Show playback question
             showPlaybackQuestion() {
-                // Calculate practice accuracy average first
                 const practiceAcc1 = this.data.trials.accuracy[0] || 0;
                 const practiceAcc2 = this.data.trials.accuracy[1] || 0;
                 this.data.practiceAccuracyAvg = parseFloat(((practiceAcc1 + practiceAcc2) / 2).toFixed(2));
@@ -885,12 +902,10 @@
 
             // Submit all data
             submitData() {
-                // Record end time
                 this.timing.endTime = new Date();
                 this.data.endTime = this.formatDate(this.timing.endTime);
                 this.data.duration = Math.round((this.timing.endTime - this.timing.startTime) / 1000);
 
-                // Fill in form fields
                 const form = document.getElementById('task_data');
                 form.study_name.value = this.data.studyName;
                 form.subject_code.value = this.data.subjectCode;
@@ -899,6 +914,9 @@
                 form.duration.value = this.data.duration;
                 form.background_color.value = this.config.backgroundColor;
                 form.attended_color.value = this.state.attendedColor;
+                form.line_color.value = this.config.lineColor;
+                form.top_line_position.value = this.config.topLinePosition;
+                form.bottom_line_position.value = this.config.bottomLinePosition;
                 form.bounce_angle_variation.value = this.config.bounceAngleVariation;
                 form.min_angle_from_wall.value = this.config.minAngleFromWall;
                 form.perturbation_interval_min.value = this.config.perturbationIntervalMin;
@@ -912,24 +930,24 @@
                 form.unexpected_object_direction.value = this.data.unexpectedObjectDirection || '';
 
                 // Trial 1 (Practice 1)
-                form.trial1_bounces.value = this.data.trials.bounces[0] || '';
+                form.trial1_crossings.value = this.data.trials.crossings[0] || '';
                 form.trial1_count.value = this.data.trials.counts[0] || '';
                 form.trial1_accuracy.value = this.data.trials.accuracy[0] || '';
 
                 // Trial 2 (Practice 2)
-                form.trial2_bounces.value = this.data.trials.bounces[1] || '';
+                form.trial2_crossings.value = this.data.trials.crossings[1] || '';
                 form.trial2_count.value = this.data.trials.counts[1] || '';
                 form.trial2_accuracy.value = this.data.trials.accuracy[1] || '';
 
                 // Trial 3 (Critical)
-                form.trial3_bounces.value = this.data.trials.bounces[2] || '';
+                form.trial3_crossings.value = this.data.trials.crossings[2] || '';
                 form.trial3_count.value = this.data.trials.counts[2] || '';
                 form.trial3_accuracy.value = this.data.trials.accuracy[2] || '';
                 form.trial3_noticed.value = this.data.responses.noticed[0] || '';
                 form.trial3_shape_choice.value = this.data.responses.shapeChoice[0] || '';
 
                 // Trial 4 (Divided)
-                form.trial4_bounces.value = this.data.trials.bounces[3] || '';
+                form.trial4_crossings.value = this.data.trials.crossings[3] || '';
                 form.trial4_count.value = this.data.trials.counts[3] || '';
                 form.trial4_accuracy.value = this.data.trials.accuracy[3] || '';
                 form.trial4_noticed.value = this.data.responses.noticed[1] || '';
@@ -942,19 +960,14 @@
                 form.run_smoothly.value = this.data.runSmoothly || '';
                 form.glitches_description.value = this.data.glitchesDescription || '';
 
-                // Log all data for debugging
+                // Log all data
                 console.log("=== FINAL DATA ===");
                 console.log("Study name:", this.data.studyName);
                 console.log("Subject:", this.data.subjectCode);
                 console.log("Duration:", this.data.duration, "seconds");
                 console.log("Attended color:", this.state.attendedColor);
-                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "°");
-                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "°");
-                console.log("Motion settings - Perturbation interval:", this.config.perturbationIntervalMin + "-" + this.config.perturbationIntervalMax, "ms");
-                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "°");
-                console.log("Motion settings - Speed range:", this.config.speedMin + "-" + this.config.speedMax, "px/frame");
-                console.log("Motion settings - UO speed:", this.config.unexpectedObjectSpeed, "px/frame");
-                console.log("Bounces:", this.data.trials.bounces);
+                console.log("Line positions: top =", this.config.topLinePosition, ", bottom =", this.config.bottomLinePosition);
+                console.log("Crossings:", this.data.trials.crossings);
                 console.log("Counts:", this.data.trials.counts);
                 console.log("Accuracy:", this.data.trials.accuracy);
                 console.log("Practice Avg:", this.data.practiceAccuracyAvg);
@@ -983,7 +996,6 @@
                     if (xhr.readyState === 4) {
                         console.log("Server response:", xhr.responseText);
                         if (xhr.status === 200) {
-                            // Redirect to Prolific
                             window.location.href = 'https://app.prolific.com/submissions/complete?cc=C1QBLCRQ';
                             console.log("Data submitted successfully.");
                         } else {
@@ -1000,7 +1012,6 @@
         // ============================================================
         window.onload = function() {
             console.log("Page loaded - Experiment ready!");
-            // Initialize and show first instructions
             experiment.init();
             experiment.showInstructions();
         };
