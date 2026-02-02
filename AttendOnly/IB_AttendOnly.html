@@ -188,7 +188,7 @@
             <div id="responseSection" class="response-section">
                 <h2 id="responsePrompt">Enter your count:</h2>
                 <div id="singleCount">
-                    <label>Total crossings: </label>
+                    <label>Total touches: </label>
                     <input type="number" id="countInput" min="0" max="200">
                     <br><br>
                     <button id="submitCount" onclick="experiment.submitResponse()">Submit</button>
@@ -289,8 +289,11 @@
                 // Line configuration
                 topLinePosition: 0.25,       // 25% from top
                 bottomLinePosition: 0.75,    // 75% from top
-                lineColor: '#FFFFFF',        // White lines
+                lineColor: '#999999',        // Midgray lines (between white and black)
                 lineWidth: 2,                // Thin line (2 pixels)
+
+                // Trial timing
+                initialPauseTime: 500,       // 0.5 seconds pause at start with circles visible
 
                 // Motion variation settings
                 bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection
@@ -369,7 +372,7 @@
 
                 console.log("Experiment initialized - 4", this.state.attendedColor, "circles");
                 console.log("Line positions: top =", this.topLineY, "px, bottom =", this.bottomLineY, "px");
-                console.log("Counting line crossings (both directions)");
+                console.log("Counting line touches (must fully leave line before touching again counts)");
             },
 
             // Format date for database (CST timezone)
@@ -414,21 +417,21 @@
                     // Initial instructions
                     message = `<p>In this task, 4 circles will appear inside a colored rectangle with two horizontal lines.
                               After a moment, they will begin moving and bouncing off the sides of the rectangle.</p>
-                              <p>Please count the total number of times any circle crosses either of the two horizontal lines.
-                              Count crossings in both directions (up-to-down and down-to-up).</p>
+                              <p>Please count the total number of times any circle touches either of the two horizontal lines.
+                              Each touch counts once - a circle must fully leave the line before touching it again to count.</p>
                               <p>You will be asked to report your total count.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'practice') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times any circle crosses either of the two horizontal lines.</p>
+                              number of times any circle touches either of the two horizontal lines.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'critical') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times any circle crosses either of the two horizontal lines.</p>
+                              number of times any circle touches either of the two horizontal lines.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'divided') {
                     message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times any circle crosses either of the two horizontal lines.</p>
+                              number of times any circle touches either of the two horizontal lines.</p>
                               <p><strong>NEW REQUIREMENT:</strong> This time, you should <strong>also look</strong>
                               for the presence of an extra object.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
@@ -444,23 +447,46 @@
 
                 this.showScreen('canvasScreen');
                 this.createObjects();
-                this.state.isRunning = true;
                 this.lastFrameTime = null;
 
-                // Set up unexpected object for critical/divided trials
-                if (trialType === 'critical' || trialType === 'divided') {
-                    setTimeout(() => {
-                        this.addUnexpectedObject();
-                    }, this.config.unexpectedObjectStart);
-                }
+                // Draw initial static display (circles visible but not moving)
+                this.drawStaticDisplay();
 
-                // Start animation
-                requestAnimationFrame((time) => this.animate(time));
-
-                // End trial after duration
+                // After initial pause, start the animation
                 setTimeout(() => {
-                    this.endTrial();
-                }, this.config.trialDuration);
+                    this.state.isRunning = true;
+
+                    // Set up unexpected object for critical/divided trials
+                    if (trialType === 'critical' || trialType === 'divided') {
+                        setTimeout(() => {
+                            this.addUnexpectedObject();
+                        }, this.config.unexpectedObjectStart);
+                    }
+
+                    // Start animation
+                    requestAnimationFrame((time) => this.animate(time));
+
+                    // End trial after duration (from when movement starts)
+                    setTimeout(() => {
+                        this.endTrial();
+                    }, this.config.trialDuration);
+
+                }, this.config.initialPauseTime);
+            },
+
+            // Draw the static display (before animation starts)
+            drawStaticDisplay() {
+                // Clear canvas
+                this.ctx.fillStyle = this.config.backgroundColor;
+                this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
+
+                // Draw the two horizontal lines
+                this.drawLines();
+
+                // Draw all objects in their starting positions
+                this.objects.forEach(obj => {
+                    this.drawObject(obj);
+                });
             },
 
             // Helper: Rotate velocity vector by angle (in degrees)
@@ -531,15 +557,21 @@
                     // Random starting Y position
                     const startY = Math.random() * (this.config.canvasHeight - margin * 2) + margin;
 
+                    // Calculate initial touch states based on starting position
+                    const radius = this.config.objectSize / 2;
+                    const touchingTop = Math.abs(startY - this.topLineY) <= radius;
+                    const touchingBottom = Math.abs(startY - this.bottomLineY) <= radius;
+
                     this.objects.push({
                         x: Math.random() * (this.config.canvasWidth - margin * 2) + margin,
                         y: startY,
-                        prevY: startY,  // Track previous Y position for crossing detection
                         vx: speed * xDir,
                         vy: speed * yDir,
                         color: this.state.attendedColor,
                         size: this.config.objectSize,
-                        crossings: 0,   // Count line crossings instead of bounces
+                        crossings: 0,   // Count line crossings
+                        touchingTopLine: touchingTop,      // Track if currently touching top line
+                        touchingBottomLine: touchingBottom, // Track if currently touching bottom line
                         timeSincePerturbation: Math.random() * initialInterval,
                         nextPerturbationAt: initialInterval
                     });
@@ -630,32 +662,35 @@
                 this.ctx.stroke();
             },
 
-            // Check if object crossed a line (returns true if crossed)
-            checkLineCrossing(prevY, currentY, lineY) {
-                // Check if the object crossed the line in either direction
-                // Crossed from above to below: prevY < lineY && currentY >= lineY
-                // Crossed from below to above: prevY > lineY && currentY <= lineY
-                return (prevY < lineY && currentY >= lineY) || (prevY > lineY && currentY <= lineY);
+            // Check if disk is touching a line (edge of disk reaches line)
+            isDiskTouchingLine(diskY, lineY, radius) {
+                return Math.abs(diskY - lineY) <= radius;
             },
 
             // Update object position
             updateObject(obj, timeMultiplier, deltaTime) {
-                // Store previous Y for crossing detection
-                obj.prevY = obj.y;
-
                 // Apply movement
                 obj.x += obj.vx * timeMultiplier;
                 obj.y += obj.vy * timeMultiplier;
 
                 const radius = obj.size / 2;
 
-                // Check line crossings (using center of circle)
-                if (this.checkLineCrossing(obj.prevY, obj.y, this.topLineY)) {
+                // Check if disk is currently touching each line
+                const nowTouchingTop = this.isDiskTouchingLine(obj.y, this.topLineY, radius);
+                const nowTouchingBottom = this.isDiskTouchingLine(obj.y, this.bottomLineY, radius);
+
+                // Count crossing only when disk starts touching (wasn't touching before, is touching now)
+                // This means it must fully leave the line before it can be counted again
+                if (nowTouchingTop && !obj.touchingTopLine) {
                     obj.crossings++;
                 }
-                if (this.checkLineCrossing(obj.prevY, obj.y, this.bottomLineY)) {
+                if (nowTouchingBottom && !obj.touchingBottomLine) {
                     obj.crossings++;
                 }
+
+                // Update touch states
+                obj.touchingTopLine = nowTouchingTop;
+                obj.touchingBottomLine = nowTouchingBottom;
 
                 // Wall collisions (still bounce off walls, just don't count)
                 if (obj.x - radius <= 0 || obj.x + radius >= this.config.canvasWidth) {
@@ -753,7 +788,7 @@
                 });
 
                 this.data.trials.crossings.push(totalCrossings);
-                console.log("Trial", this.state.currentTrial + 1, "- Actual crossings:", totalCrossings);
+                console.log("Trial", this.state.currentTrial + 1, "- Actual touches:", totalCrossings);
 
                 this.showResponseInput();
             },
@@ -762,7 +797,7 @@
             showResponseInput() {
                 this.showScreen('responseScreen');
                 document.getElementById('responsePrompt').textContent =
-                    `In the box below, please enter the total number of times the circles crossed either of the two horizontal lines.`;
+                    `In the box below, please enter the total number of times the circles touched either of the two horizontal lines.`;
                 document.getElementById('countInput').value = '';
                 document.getElementById('countInput').focus();
             },
