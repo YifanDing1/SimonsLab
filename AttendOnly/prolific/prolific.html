@@ -85,8 +85,8 @@
                 if (response === "Duplicate Prolific ID") {
                     displayDuplicateMessage();
                 } else {
-                    //let nextTaskUrl = "http://simonslab.com/mot/AttendOnly/IB_AttendOnly.html";
-                    let nextTaskUrl = "http://localhost/AttendOnly/IB_AttendOnly.html";
+                    let nextTaskUrl = "http://simonslab.com/mot/AttendOnly/IB_AttendOnly.html";
+                    // let nextTaskUrl = "http://localhost/AttendOnly/IB_AttendOnly.html";
                     nextTaskUrl += "?subject_code=" + encodeURIComponent(subject_code);
                     window.location.href = nextTaskUrl;
                 }

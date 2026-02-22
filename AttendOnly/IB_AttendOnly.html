@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inattentional Blindness Experiment - Pilot 5: Jitter Distractors</title>
+    <title>Inattentional Blindness Experiment - Pilot 8: Attend+Ignore Jitter Distractors</title>
     <style>
         /* STYLING */
         body {
@@ -274,8 +274,8 @@
     <script>
         // ============================================================
         // EXPERIMENT CONTROLLER
-        // Pilot 5 Jitter: 4 white attended circles + 4 jittering black distractor circles
-        // Distractors gently wobble around fixed anchor positions.
+        // Pilot 8 Attend+Ignore: 4 white attended circles + 4 jittering black distractor circles
+        // Instructions explicitly tell participants to ignore the black circles.
         // ============================================================
         const experiment = {
             // Configuration
@@ -295,11 +295,11 @@
                 backgroundColor: '#7676A7',
 
                 // Motion variation settings
-                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (Â±45Â° = 45-135Â° range)
+                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (Ã‚Â±45Ã‚Â° = 45-135Ã‚Â° range)
                 minAngleFromWall: 25,        // Minimum degrees from wall to prevent shallow/parallel movement
                 perturbationIntervalMin: 500,  // Min milliseconds between random direction changes
                 perturbationIntervalMax: 1000, // Max milliseconds between random direction changes
-                perturbationAmount: 30,      // Max degrees for random perturbation (Â±30Â°)
+                perturbationAmount: 30,      // Max degrees for random perturbation (Ã‚Â±30Ã‚Â°)
                 speedMin: 1.73,              // Minimum speed (pixels per frame at 60fps)
                 speedMax: 3.17,              // Maximum speed (pixels per frame at 60fps)
                 unexpectedObjectSpeed: 1.44  // UO speed (pixels per frame at 60fps)
@@ -311,7 +311,7 @@
                 trialSequence: ['practice', 'practice', 'critical', 'divided'],
                 currentPhase: 'instructions',
                 isRunning: false,
-                attendedColor: 'white'  // Always white in Pilot 5
+                attendedColor: 'white'  // Always white in Pilot 8
             },
 
             // Static distractor circles (generated once, reused across trials)
@@ -325,7 +325,7 @@
 
             // Data collection
             data: {
-                studyName: 'pilot7',
+                studyName: 'pilot8',
                 subjectCode: null,
                 startTime: '',
                 endTime: '',
@@ -360,7 +360,7 @@
                 this.data.subjectCode = urlParams.get('subject_code') || 'test_subject';
                 console.log("Subject code:", this.data.subjectCode);
 
-                // Attended color is always white in Pilot 5
+                // Attended color is always white in Pilot 8
                 console.log("Attended color:", this.state.attendedColor);
 
                 // Generate static distractor positions once (reused across all trials)
@@ -370,7 +370,7 @@
                 this.timing.startTime = new Date();
                 this.data.startTime = this.formatDate(this.timing.startTime);
 
-                console.log("Experiment initialized - Pilot 5 Jitter: 4 white attended + 4 jittering black distractors");
+                console.log("Experiment initialized - Pilot 8 Attend+Ignore: 4 white attended + 4 jittering black distractors (explicit ignore instructions)");
                 console.log("Distractor anchor positions:", this.distractors.map(d => `(${d.anchorX.toFixed(0)}, ${d.anchorY.toFixed(0)})`).join(', '));
                 console.log("Using delta-time animation for consistent speed across all devices");
             },
@@ -464,23 +464,28 @@
                 let message = "";
                 if (this.state.currentTrial === 0) {
                     // Initial instructions
-                    message = `<p>In this task, 4 circles will appear inside a colored rectangle.
-                              After a moment, they will begin moving and bouncing off the sides of the rectangle.</p>
-                              <p>Please count the total number of times the circles bounce off
+                    message = `<p>In this task, white and black circles will appear inside a colored rectangle.
+                              After a moment, the white circles will begin moving and bouncing off the sides of the rectangle.</p>
+                              <p>Please pay attention to <strong>only the white circles</strong> and
+                              <strong>ignore the black circles</strong>.</p>
+                              <p>Count the total number of times the <strong>white circles</strong> bounce off
                               the sides of the rectangle.</p>
                               <p>You will be asked to report your total count.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'practice') {
-                    message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                    message = `<p>On the next screen, you will do the same task. Again, count the total
+                              number of times the white circles bounce off the sides of the rectangle
+                              and ignore the black circles.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'critical') {
-                    message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                    message = `<p>On the next screen, you will do the same task. Again, count the total
+                              number of times the white circles bounce off the sides of the rectangle
+                              and ignore the black circles.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
                 } else if (trialType === 'divided') {
-                    message = `<p>On the next screen, you will do the same task. Again, please count the total
-                              number of times the circles bounce off the sides of the rectangle.</p>
+                    message = `<p>On the next screen, you will do the same task. Again, count the total
+                              number of times the white circles bounce off the sides of the rectangle
+                              and ignore the black circles.</p>
                               <p><strong>NEW REQUIREMENT:</strong> This time, you should <strong>also look</strong>
                               for the presence of an extra object.</p>
                               <br><button onclick="experiment.startTrial()">Click to begin</button>`;
@@ -533,7 +538,7 @@
                 };
             },
 
-            // Helper: Get random angle within range (Â±maxDegrees)
+            // Helper: Get random angle within range (Ã‚Â±maxDegrees)
             getRandomAngle(maxDegrees) {
                 return (Math.random() * 2 - 1) * maxDegrees; // Returns -maxDegrees to +maxDegrees
             },
@@ -595,7 +600,7 @@
                         y: Math.random() * (this.config.canvasHeight - margin * 2) + margin,
                         vx: speed * xDir,
                         vy: speed * yDir,
-                        color: this.state.attendedColor,  // Always white in Pilot 5
+                        color: this.state.attendedColor,  // Always white in Pilot 8
                         size: this.config.objectSize,
                         bounces: 0,
                         timeSincePerturbation: Math.random() * initialInterval, // Stagger initial perturbations
@@ -844,7 +849,7 @@
             showResponseInput() {
                 this.showScreen('responseScreen');
                 document.getElementById('responsePrompt').textContent =
-                    `In the box below, please enter the total number of times the circles bounced off the edges of the rectangle.`;
+                    `In the box below, please enter the total number of times the white circles bounced off the edges of the rectangle.`;
                 document.getElementById('countInput').value = '';
                 document.getElementById('countInput').focus();
             },
@@ -1060,10 +1065,10 @@
                 console.log("Subject:", this.data.subjectCode);
                 console.log("Duration:", this.data.duration, "seconds");
                 console.log("Attended color:", this.state.attendedColor);
-                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "Â°");
-                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "Â°");
+                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "Ã‚Â°");
+                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "Ã‚Â°");
                 console.log("Motion settings - Perturbation interval:", this.config.perturbationIntervalMin + "-" + this.config.perturbationIntervalMax, "ms");
-                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "Â°");
+                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "Ã‚Â°");
                 console.log("Motion settings - Speed range:", this.config.speedMin + "-" + this.config.speedMax, "px/frame");
                 console.log("Motion settings - UO speed:", this.config.unexpectedObjectSpeed, "px/frame");
                 console.log("Distractors:", this.config.numDistractors, this.config.distractorColor, "jittering circles at:",

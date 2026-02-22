@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inattentional Blindness Experiment - Pilot 5: Jitter Distractors</title>
+    <title>Inattentional Blindness Experiment - Pilot 5: Sequential Jitter Distractors</title>
     <style>
         /* STYLING */
         body {
@@ -274,8 +274,8 @@
     <script>
         // ============================================================
         // EXPERIMENT CONTROLLER
-        // Pilot 5 Jitter: 4 white attended circles + 4 jittering black distractor circles
-        // Distractors gently wobble around fixed anchor positions.
+        // Pilot 5 Sequential Jitter: 4 white attended circles + 4 black distractor circles
+        // Only one distractor jitters at a time; it wobbles, settles back, then another starts.
         // ============================================================
         const experiment = {
             // Configuration
@@ -284,9 +284,15 @@
                 numDistractors: 4,           // Number of black distractor circles
                 distractorColor: 'black',    // Color of distractor circles
                 distractorMidlineBuffer: 50, // Min pixels from canvas vertical center for distractors
+                // Sequential jitter: only one distractor jitters at a time
                 distractorJitterRadius: 3,   // Max pixels to jitter from anchor per frame
                 distractorJitterSpeed: 0.02, // How fast jitter direction changes (lower = smoother)
                 distractorMaxDrift: 8,       // Max pixels a distractor can drift from its anchor
+                jitterDurationMin: 1500,     // Min ms a distractor jitters before settling
+                jitterDurationMax: 3500,     // Max ms a distractor jitters before settling
+                jitterGapMin: 300,           // Min ms pause between one settling and next starting
+                jitterGapMax: 500,           // Max ms pause between one settling and next starting
+                jitterSettleSpeed: 0.08,     // How fast a distractor drifts back to anchor (0-1, per frame at 60fps)
                 trialDuration: 19000,        // 19 seconds like original
                 unexpectedObjectStart: 5000, // 5 seconds like original
                 canvasWidth: 666,
@@ -295,11 +301,11 @@
                 backgroundColor: '#7676A7',
 
                 // Motion variation settings
-                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (Â±45Â° = 45-135Â° range)
+                bounceAngleVariation: 45,    // Max degrees to deviate from perfect reflection (Ã‚Â±45Ã‚Â° = 45-135Ã‚Â° range)
                 minAngleFromWall: 25,        // Minimum degrees from wall to prevent shallow/parallel movement
                 perturbationIntervalMin: 500,  // Min milliseconds between random direction changes
                 perturbationIntervalMax: 1000, // Max milliseconds between random direction changes
-                perturbationAmount: 30,      // Max degrees for random perturbation (Â±30Â°)
+                perturbationAmount: 30,      // Max degrees for random perturbation (Ã‚Â±30Ã‚Â°)
                 speedMin: 1.73,              // Minimum speed (pixels per frame at 60fps)
                 speedMax: 3.17,              // Maximum speed (pixels per frame at 60fps)
                 unexpectedObjectSpeed: 1.44  // UO speed (pixels per frame at 60fps)
@@ -317,6 +323,16 @@
             // Static distractor circles (generated once, reused across trials)
             distractors: [],
 
+            // Sequential jitter state machine
+            // States: 'gap' (waiting to pick next), 'jittering' (one active), 'settling' (active returning to anchor)
+            jitterState: {
+                phase: 'gap',          // Current phase
+                activeIndex: -1,       // Which distractor is currently jittering (-1 = none)
+                timer: 0,              // Elapsed ms in current phase
+                duration: 0,           // How long current phase lasts
+                lastUsedIndex: -1      // Avoid picking the same one twice in a row
+            },
+
             // Timing
             timing: {
                 startTime: null,
@@ -325,7 +341,7 @@
 
             // Data collection
             data: {
-                studyName: 'pilot7',
+                studyName: 'pilot??',
                 subjectCode: null,
                 startTime: '',
                 endTime: '',
@@ -370,7 +386,7 @@
                 this.timing.startTime = new Date();
                 this.data.startTime = this.formatDate(this.timing.startTime);
 
-                console.log("Experiment initialized - Pilot 5 Jitter: 4 white attended + 4 jittering black distractors");
+                console.log("Experiment initialized - Pilot 5 Sequential Jitter: 4 white attended + 4 black distractors (one jitters at a time)");
                 console.log("Distractor anchor positions:", this.distractors.map(d => `(${d.anchorX.toFixed(0)}, ${d.anchorY.toFixed(0)})`).join(', '));
                 console.log("Using delta-time animation for consistent speed across all devices");
             },
@@ -419,7 +435,8 @@
                         y: y,
                         jitterAngle: Math.random() * Math.PI * 2, // Random starting jitter direction
                         color: this.config.distractorColor,
-                        size: this.config.objectSize
+                        size: this.config.objectSize,
+                        motionState: 'idle'    // 'idle', 'jittering', or 'settling'
                     });
                 }
             },
@@ -504,7 +521,17 @@
                     d.x = d.anchorX;
                     d.y = d.anchorY;
                     d.jitterAngle = Math.random() * Math.PI * 2;
+                    d.motionState = 'idle';
                 });
+
+                // Reset sequential jitter state - start with a short gap before first jitter
+                this.jitterState = {
+                    phase: 'gap',
+                    activeIndex: -1,
+                    timer: 0,
+                    duration: this.getRandomJitterGap(),
+                    lastUsedIndex: -1
+                };
 
                 // Set up unexpected object for critical/divided trials
                 if (trialType === 'critical' || trialType === 'divided') {
@@ -533,7 +560,7 @@
                 };
             },
 
-            // Helper: Get random angle within range (Â±maxDegrees)
+            // Helper: Get random angle within range (Ã‚Â±maxDegrees)
             getRandomAngle(maxDegrees) {
                 return (Math.random() * 2 - 1) * maxDegrees; // Returns -maxDegrees to +maxDegrees
             },
@@ -656,9 +683,10 @@
                 this.ctx.fillStyle = this.config.backgroundColor;
                 this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
 
-                // Draw static distractor circles FIRST (background layer)
+                // Update sequential jitter state machine, then draw distractors
+                this.updateJitterStateMachine(deltaTime);
                 this.distractors.forEach(d => {
-                    this.updateDistractorJitter(d, timeMultiplier);
+                    this.updateDistractorMotion(d, timeMultiplier);
                     this.drawObject(d);
                 });
 
@@ -761,28 +789,103 @@
                 }
             },
 
-            // Update distractor jitter - gentle random wobble around anchor position
-            updateDistractorJitter(d, timeMultiplier) {
-                // Slowly drift the jitter angle for smooth, organic movement
-                d.jitterAngle += (Math.random() - 0.5) * this.config.distractorJitterSpeed * timeMultiplier * 60;
+            // Helper: Get random jitter duration (how long one distractor jitters)
+            getRandomJitterDuration() {
+                return this.config.jitterDurationMin +
+                       Math.random() * (this.config.jitterDurationMax - this.config.jitterDurationMin);
+            },
 
-                // Apply small step in jitter direction
-                const step = this.config.distractorJitterRadius * timeMultiplier;
-                d.x += Math.cos(d.jitterAngle) * step;
-                d.y += Math.sin(d.jitterAngle) * step;
+            // Helper: Get random gap duration (pause between distractors)
+            getRandomJitterGap() {
+                return this.config.jitterGapMin +
+                       Math.random() * (this.config.jitterGapMax - this.config.jitterGapMin);
+            },
 
-                // Clamp to max drift from anchor (rubber-band back)
-                const dx = d.x - d.anchorX;
-                const dy = d.y - d.anchorY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > this.config.distractorMaxDrift) {
-                    // Pull back toward anchor
-                    const scale = this.config.distractorMaxDrift / dist;
-                    d.x = d.anchorX + dx * scale;
-                    d.y = d.anchorY + dy * scale;
-                    // Bias jitter angle back toward anchor
-                    d.jitterAngle = Math.atan2(d.anchorY - d.y, d.anchorX - d.x) + (Math.random() - 0.5) * Math.PI * 0.5;
+            // Helper: Pick next distractor index (avoid repeating the same one)
+            pickNextDistractor() {
+                const candidates = [];
+                for (let i = 0; i < this.distractors.length; i++) {
+                    if (i !== this.jitterState.lastUsedIndex) {
+                        candidates.push(i);
+                    }
                 }
+                return candidates[Math.floor(Math.random() * candidates.length)];
+            },
+
+            // Sequential jitter state machine - manages which distractor is active
+            updateJitterStateMachine(deltaTime) {
+                const js = this.jitterState;
+                js.timer += deltaTime;
+
+                if (js.phase === 'gap') {
+                    // Waiting to pick next distractor
+                    if (js.timer >= js.duration) {
+                        // Pick a new distractor to start jittering
+                        const nextIdx = this.pickNextDistractor();
+                        js.activeIndex = nextIdx;
+                        js.lastUsedIndex = nextIdx;
+                        js.phase = 'jittering';
+                        js.timer = 0;
+                        js.duration = this.getRandomJitterDuration();
+                        this.distractors[nextIdx].motionState = 'jittering';
+                        this.distractors[nextIdx].jitterAngle = Math.random() * Math.PI * 2;
+                    }
+                } else if (js.phase === 'jittering') {
+                    // One distractor is actively jittering
+                    if (js.timer >= js.duration) {
+                        // Time to settle
+                        js.phase = 'settling';
+                        js.timer = 0;
+                        // No fixed duration for settling - it ends when close to anchor
+                        this.distractors[js.activeIndex].motionState = 'settling';
+                    }
+                } else if (js.phase === 'settling') {
+                    // Check if the active distractor has returned close to its anchor
+                    const d = this.distractors[js.activeIndex];
+                    const dx = d.x - d.anchorX;
+                    const dy = d.y - d.anchorY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < 0.5) {
+                        // Close enough - snap to anchor and go to gap
+                        d.x = d.anchorX;
+                        d.y = d.anchorY;
+                        d.motionState = 'idle';
+                        js.activeIndex = -1;
+                        js.phase = 'gap';
+                        js.timer = 0;
+                        js.duration = this.getRandomJitterGap();
+                    }
+                }
+            },
+
+            // Update individual distractor based on its motion state
+            updateDistractorMotion(d, timeMultiplier) {
+                if (d.motionState === 'jittering') {
+                    // Active jitter - same wobble logic as before
+                    d.jitterAngle += (Math.random() - 0.5) * this.config.distractorJitterSpeed * timeMultiplier * 60;
+
+                    const step = this.config.distractorJitterRadius * timeMultiplier;
+                    d.x += Math.cos(d.jitterAngle) * step;
+                    d.y += Math.sin(d.jitterAngle) * step;
+
+                    // Clamp to max drift from anchor (rubber-band back)
+                    const dx = d.x - d.anchorX;
+                    const dy = d.y - d.anchorY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > this.config.distractorMaxDrift) {
+                        const scale = this.config.distractorMaxDrift / dist;
+                        d.x = d.anchorX + dx * scale;
+                        d.y = d.anchorY + dy * scale;
+                        d.jitterAngle = Math.atan2(d.anchorY - d.y, d.anchorX - d.x) + (Math.random() - 0.5) * Math.PI * 0.5;
+                    }
+                } else if (d.motionState === 'settling') {
+                    // Smoothly drift back toward anchor
+                    const settleRate = 1 - Math.pow(1 - this.config.jitterSettleSpeed, timeMultiplier);
+                    d.x += (d.anchorX - d.x) * settleRate;
+                    d.y += (d.anchorY - d.y) * settleRate;
+                }
+                // 'idle' - no movement, stays at current position (which should be at anchor)
             },
 
             // Update unexpected object with time-based movement
@@ -1021,7 +1124,7 @@
                 form.distractor_positions.value = JSON.stringify(
                     this.distractors.map(d => ({ x: Math.round(d.anchorX), y: Math.round(d.anchorY) }))
                 );
-                form.distractor_motion.value = 'jitter';
+                form.distractor_motion.value = 'sequential_jitter';
 
                 // Trial 1 (Practice 1)
                 form.trial1_bounces.value = this.data.trials.bounces[0] || '';
@@ -1060,13 +1163,13 @@
                 console.log("Subject:", this.data.subjectCode);
                 console.log("Duration:", this.data.duration, "seconds");
                 console.log("Attended color:", this.state.attendedColor);
-                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "Â°");
-                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "Â°");
+                console.log("Motion settings - Bounce angle variation:", this.config.bounceAngleVariation + "Ã‚Â°");
+                console.log("Motion settings - Min angle from wall:", this.config.minAngleFromWall + "Ã‚Â°");
                 console.log("Motion settings - Perturbation interval:", this.config.perturbationIntervalMin + "-" + this.config.perturbationIntervalMax, "ms");
-                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "Â°");
+                console.log("Motion settings - Perturbation amount:", this.config.perturbationAmount + "Ã‚Â°");
                 console.log("Motion settings - Speed range:", this.config.speedMin + "-" + this.config.speedMax, "px/frame");
                 console.log("Motion settings - UO speed:", this.config.unexpectedObjectSpeed, "px/frame");
-                console.log("Distractors:", this.config.numDistractors, this.config.distractorColor, "jittering circles at:",
+                console.log("Distractors:", this.config.numDistractors, this.config.distractorColor, "sequential-jitter circles at:",
                     this.distractors.map(d => `(${Math.round(d.anchorX)}, ${Math.round(d.anchorY)})`).join(', '));
                 console.log("Bounces:", this.data.trials.bounces);
                 console.log("Counts:", this.data.trials.counts);
