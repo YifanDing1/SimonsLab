@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inattentional Blindness Experiment - Color Transition UEO</title>
+    <style>
+        /* STYLING */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        #experimentContainer {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #canvasContainer {
+            text-align: center;
+            min-height: 600px;
+        }
+
+        #canvas {
+            display: block;
+            margin: 20px auto;
+            border: 2px solid #333;
+            background-color: #7676A7;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        input[type="number"] {
+            font-size: 16px;
+            padding: 5px;
+            width: 80px;
+            margin: 5px;
+        }
+
+        input[type="text"] {
+            font-size: 16px;
+            padding: 5px;
+            width: 300px;
+            margin: 5px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #instructions {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+            line-height: 1.5;
+            min-height: 200px;
+            padding: 40px;
+        }
+
+        .response-section {
+            background: #f9f9f9;
+            padding: 40px;
+            border-radius: 5px;
+            margin: 10px auto;
+            min-height: 300px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .choice-button {
+            display: inline-block;
+            margin: 10px;
+            padding: 15px 30px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            background-color: white;
+        }
+
+        .choice-button:hover {
+            border-color: #4CAF50;
+            background-color: #f0f0f0;
+        }
+
+        .choice-button.selected {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+
+        .screen {
+            min-height: 500px;
+        }
+
+        /* Color slider styling */
+        .color-slider-container {
+            margin: 30px auto;
+            max-width: 500px;
+        }
+
+        .gradient-bar {
+            width: 100%;
+            height: 40px;
+            border-radius: 5px;
+            border: 2px solid #999;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .slider-thumb {
+            position: absolute;
+            top: -8px;
+            width: 4px;
+            height: 56px;
+            background-color: red;
+            border: 2px solid red;
+            border-radius: 2px;
+            pointer-events: none;
+            transform: translateX(-50%);
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 14px;
+            color: #555;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="experimentContainer">
+        <!-- Hidden form for data submission -->
+        <form id="task_data" name="task_data" action="data.php" method="post">
+            <input type="hidden" name="study_name" value="">
+            <input type="hidden" name="subject_code" value="">
+            <input type="hidden" name="start_time" value="">
+            <input type="hidden" name="end_time" value="">
+            <input type="hidden" name="duration" value="">
+            <input type="hidden" name="background_color" value="">
+            <input type="hidden" name="attended_color" value="">
+            <input type="hidden" name="bounce_angle_variation" value="">
+            <input type="hidden" name="min_angle_from_wall" value="">
+            <input type="hidden" name="perturbation_interval_min" value="">
+            <input type="hidden" name="perturbation_interval_max" value="">
+            <input type="hidden" name="perturbation_amount" value="">
+            <input type="hidden" name="speed_min" value="">
+            <input type="hidden" name="speed_max" value="">
+            <input type="hidden" name="unexpected_object_speed" value="">
+            <input type="hidden" name="unexpected_object_start_color" value="">
+            <input type="hidden" name="unexpected_object_end_color" value="">
+            <input type="hidden" name="unexpected_object_shape" value="">
+            <input type="hidden" name="unexpected_object_direction" value="">
+            <!-- Distractor info -->
+            <input type="hidden" name="num_distractors" value="">
+            <input type="hidden" name="distractor_color" value="">
+            <input type="hidden" name="distractor_positions" value="">
+            <input type="hidden" name="distractor_motion" value="">
+            <!-- Trial 1 (Practice 1) -->
+            <input type="hidden" name="trial1_bounces" value="">
+            <input type="hidden" name="trial1_count" value="">
+            <input type="hidden" name="trial1_accuracy" value="">
+            <!-- Trial 2 (Practice 2) -->
+            <input type="hidden" name="trial2_bounces" value="">
+            <input type="hidden" name="trial2_count" value="">
+            <input type="hidden" name="trial2_accuracy" value="">
+            <!-- Trial 3 (Critical) -->
+            <input type="hidden" name="trial3_bounces" value="">
+            <input type="hidden" name="trial3_count" value="">
+            <input type="hidden" name="trial3_accuracy" value="">
+            <input type="hidden" name="trial3_noticed" value="">
+            <input type="hidden" name="trial3_shape_choice" value="">
+            <input type="hidden" name="trial3_color_slider" value="">
+            <!-- Trial 4 (Divided) -->
+            <input type="hidden" name="trial4_bounces" value="">
+            <input type="hidden" name="trial4_count" value="">
+            <input type="hidden" name="trial4_accuracy" value="">
+            <input type="hidden" name="trial4_noticed" value="">
+            <input type="hidden" name="trial4_shape_choice" value="">
+            <input type="hidden" name="trial4_color_slider" value="">
+            <!-- Accuracy summary -->
+            <input type="hidden" name="practice_accuracy_avg" value="">
+            <!-- Playback questions -->
+            <input type="hidden" name="run_smoothly" value="">
+            <input type="hidden" name="glitches_description" value="">
+        </form>
+
+        <!-- Instructions Screen -->
+        <div id="instructionScreen" class="screen">
+            <div id="instructions">
+                <p>Loading...</p>
+            </div>
+        </div>
+
+        <!-- Canvas Screen (for animation) -->
+        <div id="canvasScreen" class="screen hidden">
+            <div id="canvasContainer">
+                <canvas id="canvas" width="666" height="546"></canvas>
+            </div>
+        </div>
+
+        <!-- Response Input Screen -->
+        <div id="responseScreen" class="screen hidden">
+            <div id="responseSection" class="response-section">
+                <h2 id="responsePrompt">Enter your count:</h2>
+                <div id="singleCount">
+                    <label>Total bounces: </label>
+                    <input type="number" id="countInput" min="0" max="100">
+                    <br><br>
+                    <button id="submitCount" onclick="experiment.submitResponse()">Submit</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yes/No Question Screen -->
+        <div id="yesNoScreen" class="screen hidden">
+            <div id="yesNoSection" class="response-section">
+                <h2 id="yesNoQuestion">Did you notice anything unusual?</h2>
+                <button class="yesno-btn" onclick="experiment.submitYesNo('Yes')">Yes</button>
+                <button class="yesno-btn" onclick="experiment.submitYesNo('No')">No</button>
+            </div>
+        </div>
+
+        <!-- Shape Selection Screen -->
+        <div id="shapeScreen" class="screen hidden">
+            <div id="shapeSection" class="response-section">
+                <h2>There actually was an extra object. If you saw it, please select the shape you saw. If you didn't see it, please guess.</h2>
+                <div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0;">
+                    <div class="choice-button shape-choice" onclick="experiment.selectShape('cross')" style="padding: 10px;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="0" y1="50" x2="100" y2="50" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="50" y1="0" x2="50" y2="100" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </div>
+                    <div class="choice-button shape-choice" onclick="experiment.selectShape('Z')" style="padding: 10px;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="10" y1="10" x2="90" y2="10" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="87" y1="9" x2="13.3" y2="90" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="10" y1="90" x2="90" y2="90" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </div>
+                    <div class="choice-button shape-choice" onclick="experiment.selectShape('L')" style="padding: 10px;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="25" y1="10" x2="25" y2="90" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="20" y1="90" x2="75" y2="90" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </div>
+                    <div class="choice-button shape-choice" onclick="experiment.selectShape('T')" style="padding: 10px;">
+                        <svg width="70" height="70" viewBox="0 0 100 100">
+                            <line x1="10" y1="20" x2="90" y2="20" style="stroke:#777777; stroke-width:10"/>
+                            <line x1="50" y1="20" x2="50" y2="100" style="stroke:#777777; stroke-width:10"/>
+                        </svg>
+                    </div>
+                </div>
+                <button onclick="experiment.submitShapeChoice()">Submit Choice</button>
+            </div>
+        </div>
+
+        <!-- Color Slider Screen (NEW) -->
+        <div id="colorSliderScreen" class="screen hidden">
+            <div id="colorSliderSection" class="response-section">
+                <h2>What color do you think the extra object was? Please use the slider below to indicate.</h2>
+                <p style="color: #666; font-size: 14px;">Click or drag on the bar to select a color.</p>
+                <div class="color-slider-container">
+                    <!-- Gradient bar: black on left, white on right -->
+                    <div class="gradient-bar" id="colorGradientBar"
+                         style="background: linear-gradient(to right, #000000, #ffffff);">
+                        <div class="slider-thumb" id="colorSliderThumb" style="left: 50%;"></div>
+                    </div>
+                    <div class="slider-labels">
+                        <span>Black</span>
+                        <span>White</span>
+                    </div>
+                    <!-- Preview swatch showing the selected color -->
+                    <p style="margin-top: 15px; font-size: 15px;">Your selection:</p>
+                    <svg id="colorPreviewSVG" width="70" height="70" viewBox="0 0 100 100" style="margin: 10px auto; display: block;">
+                        <!-- Shape will be dynamically drawn here -->
+                    </svg>
+                </div>
+                <br>
+                <button onclick="experiment.submitColorSlider()">Submit Color</button>
+            </div>
+        </div>
+
+        <!-- Playback Questions Screen -->
+        <div id="playbackScreen" class="screen hidden">
+            <div id="playbackSection" class="response-section">
+                <h2 id="playbackQuestion">Did the animation play smoothly?</h2>
+                <button class="playback-btn" onclick="experiment.submitPlayback('Yes')">Yes</button>
+                <button class="playback-btn" onclick="experiment.submitPlayback('No')">No</button>
+            </div>
+        </div>
+
+        <!-- Glitches Description Screen -->
+        <div id="glitchesScreen" class="screen hidden">
+            <div id="glitchesSection" class="response-section">
+                <h2>Please describe the playback issues you experienced:</h2>
+                <input type="text" id="glitchesInput" placeholder="Describe any issues...">
+                <br><br>
+                <button onclick="experiment.submitGlitches()">Submit</button>
+            </div>
+        </div>
+
+        <!-- Final Screen -->
+        <div id="finalScreen" class="screen hidden">
+            <div id="finalSection" class="response-section">
+                <h2>Thank you for completing the task!</h2>
+                <p>Click 'Continue' to go back to Prolific.</p>
+                <button id="finalSubmit" onclick="experiment.submitData()">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // EXPERIMENT CONTROLLER
+        // Color Transition UEO: 4 white attended + 4 moving black distractors
+        // UEO cross starts as black or white (randomized) and gradually
+        // transitions to the opposite color as it crosses the screen.
+        // After shape question, participants indicate perceived color
+        // on a black-to-white gradient slider.
+        // ============================================================
+        const experiment = {
+            // Configuration
+            config: {
+                numObjects: 4,
+                numDistractors: 4,
+                distractorColor: 'black',
+                distractorMidlineBuffer: 50,
+                trialDuration: 19000,        // 19 seconds
+                unexpectedObjectStart: 5000, // 5 seconds
+                canvasWidth: 666,
+                canvasHeight: 546,
+                objectSize: 44,
+                backgroundColor: '#7676A7',
+
+                // Motion variation settings
+                bounceAngleVariation: 45,
+                minAngleFromWall: 25,
+                perturbationIntervalMin: 500,
+                perturbationIntervalMax: 1000,
+                perturbationAmount: 30,
+                speedMin: 1.73,
+                speedMax: 3.17,
+                unexpectedObjectSpeed: 1.44
+            },
+
+            // State tracking
+            state: {
+                currentTrial: 0,
+                trialSequence: ['practice', 'practice', 'critical', 'divided'],
+                currentPhase: 'instructions',
+                isRunning: false,
+                attendedColor: 'white'
+            },
+
+            // Distractor circles
+            distractors: [],
+
+            // Timing
+            timing: {
+                startTime: null,
+                endTime: null
+            },
+
+            // Data collection
+            data: {
+                studyName: 'pilot_color_transition',
+                subjectCode: null,
+                startTime: '',
+                endTime: '',
+                duration: 0,
+                unexpectedObjectStartColor: null,  // 'black' or 'white'
+                unexpectedObjectEndColor: null,     // opposite of start
+                unexpectedObjectShape: null,
+                unexpectedObjectDirection: null,
+                trials: {
+                    bounces: [],
+                    counts: [],
+                    accuracy: []
+                },
+                responses: {
+                    noticed: [null, null],
+                    shapeChoice: [null, null],
+                    colorSlider: [null, null]  // NEW: stores slider value (0-255)
+                },
+                practiceAccuracyAvg: null,
+                runSmoothly: null,
+                glitchesDescription: ''
+            },
+
+            // Color slider state
+            colorSliderActive: false,
+            colorSliderSelectedValue: null,  // 0 (black) to 255 (white)
+
+            // Initialize
+            init() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.objects = [];
+                this.unexpectedObject = null;
+                this.lastFrameTime = null;
+
+                // Get subject_code from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                this.data.subjectCode = urlParams.get('subject_code') || 'test_subject';
+                console.log("Subject code:", this.data.subjectCode);
+
+                // Attended color is always white
+                console.log("Attended color:", this.state.attendedColor);
+
+                // Randomly assign UEO starting color: black or white
+                // The UEO will transition to the opposite color as it crosses the screen
+                this.data.unexpectedObjectStartColor = Math.random() < 0.5 ? 'black' : 'white';
+                this.data.unexpectedObjectEndColor = this.data.unexpectedObjectStartColor === 'black' ? 'white' : 'black';
+                console.log("UEO color transition:", this.data.unexpectedObjectStartColor, "→", this.data.unexpectedObjectEndColor);
+
+                // Generate distractor positions
+                this.generateDistractorPositions();
+
+                // Record start time
+                this.timing.startTime = new Date();
+                this.data.startTime = this.formatDate(this.timing.startTime);
+
+                // Set up color slider interactions
+                this.setupColorSlider();
+
+                console.log("Experiment initialized - Color Transition UEO");
+                console.log("Using delta-time animation for consistent speed across all devices");
+            },
+
+            // Generate random starting positions for moving distractor circles
+            generateDistractorPositions() {
+                this.distractors = [];
+                const margin = this.config.objectSize;
+                const midY = this.config.canvasHeight / 2;
+                const buffer = this.config.distractorMidlineBuffer;
+
+                const zones = ['upper', 'upper', 'lower', 'lower'];
+
+                for (let i = 0; i < this.config.numDistractors; i++) {
+                    let x, y;
+                    let attempts = 0;
+                    const maxAttempts = 100;
+
+                    do {
+                        x = Math.random() * (this.config.canvasWidth - margin * 2) + margin;
+                        if (zones[i] === 'upper') {
+                            y = Math.random() * (midY - buffer - margin) + margin;
+                        } else {
+                            y = Math.random() * (this.config.canvasHeight - margin - midY - buffer) + midY + buffer;
+                        }
+                        attempts++;
+                    } while (
+                        this.distractors.some(d => {
+                            const dx = d.x - x;
+                            const dy = d.y - y;
+                            return Math.sqrt(dx * dx + dy * dy) < this.config.objectSize * 1.5;
+                        }) && attempts < maxAttempts
+                    );
+
+                    this.distractors.push({
+                        startX: x,
+                        startY: y,
+                        color: this.config.distractorColor,
+                        size: this.config.objectSize
+                    });
+                }
+            },
+
+            // ============================================================
+            // COLOR SLIDER SETUP
+            // ============================================================
+            setupColorSlider() {
+                const bar = document.getElementById('colorGradientBar');
+                const thumb = document.getElementById('colorSliderThumb');
+
+                let isDragging = false;
+
+                const updateSlider = (clientX) => {
+                    const rect = bar.getBoundingClientRect();
+                    let x = clientX - rect.left;
+                    x = Math.max(0, Math.min(x, rect.width));
+                    const ratio = x / rect.width;
+                    const grayValue = Math.round(ratio * 255);
+
+                    // Update thumb position
+                    thumb.style.left = (ratio * 100) + '%';
+
+                    // Update preview shape color
+                    const colorStr = `rgb(${grayValue}, ${grayValue}, ${grayValue})`;
+                    const svg = document.getElementById('colorPreviewSVG');
+                    svg.querySelectorAll('line').forEach(line => {
+                        line.style.stroke = colorStr;
+                    });
+
+                    // Store value
+                    experiment.colorSliderSelectedValue = grayValue;
+                };
+
+                // Mouse events
+                bar.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    updateSlider(e.clientX);
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        updateSlider(e.clientX);
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+
+                // Touch events for mobile
+                bar.addEventListener('touchstart', (e) => {
+                    isDragging = true;
+                    updateSlider(e.touches[0].clientX);
+                    e.preventDefault();
+                });
+
+                document.addEventListener('touchmove', (e) => {
+                    if (isDragging) {
+                        updateSlider(e.touches[0].clientX);
+                    }
+                });
+
+                document.addEventListener('touchend', () => {
+                    isDragging = false;
+                });
+            },
+
+            // Format date for database (CST timezone)
+            formatDate(date) {
+                const options = {
+                    timeZone: 'America/Chicago',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                };
+                const cstDateString = new Intl.DateTimeFormat('en-US', options).format(date);
+                const [datePart, timePart] = cstDateString.split(', ');
+                const [month, day, year] = datePart.split('/');
+                return `${year}/${month}/${day} ${timePart}`;
+            },
+
+            // Start the experiment
+            start() {
+                this.startTrial();
+            },
+
+            // Show only one screen
+            showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(screen => {
+                    screen.classList.add('hidden');
+                });
+                document.getElementById(screenId).classList.remove('hidden');
+            },
+
+            // Show instructions based on trial type
+            showInstructions() {
+                this.showScreen('instructionScreen');
+                const instructions = document.getElementById('instructions');
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+
+                let message = "";
+                if (this.state.currentTrial === 0) {
+                    message = `<p>In this task, 8 circles will appear inside a colored rectangle.
+                              After a moment, they will begin moving and bouncing off the sides of the rectangle.</p>
+                              <p>Please count the total number of times the <strong>white circles</strong> bounce off
+                              the sides of the rectangle.</p>
+                              <p>You will be asked to report your total count.</p>
+                              <br><button onclick="experiment.startTrial()">Click to begin</button>`;
+                } else if (trialType === 'practice') {
+                    message = `<p>On the next screen, you will do the same task. Again, please count the total
+                              number of times the white circles bounce off the sides of the rectangle.</p>
+                              <br><button onclick="experiment.startTrial()">Click to begin</button>`;
+                } else if (trialType === 'critical') {
+                    message = `<p>On the next screen, you will do the same task. Again, please count the total
+                              number of times the white circles bounce off the sides of the rectangle.</p>
+                              <br><button onclick="experiment.startTrial()">Click to begin</button>`;
+                } else if (trialType === 'divided') {
+                    message = `<p>On the next screen, you will do the same task. Again, please count the total
+                              number of times the white circles bounce off the sides of the rectangle.</p>
+                              <p><strong>NEW REQUIREMENT:</strong> This time, you should <strong>also look</strong>
+                              for the presence of an extra object.</p>
+                              <br><button onclick="experiment.startTrial()">Click to begin</button>`;
+                }
+
+                instructions.innerHTML = message;
+            },
+
+            // Start a trial
+            startTrial() {
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                console.log("Starting trial:", this.state.currentTrial + 1, "Type:", trialType);
+
+                this.showScreen('canvasScreen');
+                this.createObjects();
+                this.state.isRunning = true;
+                this.lastFrameTime = null;
+
+                // Reset distractors as moving objects for each trial
+                this.distractors.forEach(d => {
+                    d.x = d.startX;
+                    d.y = d.startY;
+                    const speed = this.getRandomSpeed();
+                    const xDir = Math.random() < 0.5 ? 1 : -1;
+                    const yDir = Math.random() < 0.5 ? 1 : -1;
+                    d.vx = speed * xDir;
+                    d.vy = speed * yDir;
+                    d.bounces = 0;
+                    d.isDistractor = true;
+                    const initialInterval = this.getRandomPerturbationInterval();
+                    d.timeSincePerturbation = Math.random() * initialInterval;
+                    d.nextPerturbationAt = initialInterval;
+                });
+
+                // Set up unexpected object for critical/divided trials
+                if (trialType === 'critical' || trialType === 'divided') {
+                    setTimeout(() => {
+                        this.addUnexpectedObject();
+                    }, this.config.unexpectedObjectStart);
+                }
+
+                // Start animation
+                requestAnimationFrame((time) => this.animate(time));
+
+                // End trial after duration
+                setTimeout(() => {
+                    this.endTrial();
+                }, this.config.trialDuration);
+            },
+
+            // Helper: Rotate velocity vector by angle (in degrees)
+            rotateVelocity(vx, vy, angleDegrees) {
+                const angleRadians = angleDegrees * (Math.PI / 180);
+                const cos = Math.cos(angleRadians);
+                const sin = Math.sin(angleRadians);
+                return {
+                    vx: vx * cos - vy * sin,
+                    vy: vx * sin + vy * cos
+                };
+            },
+
+            // Helper: Get random angle within range
+            getRandomAngle(maxDegrees) {
+                return (Math.random() * 2 - 1) * maxDegrees;
+            },
+
+            // Helper: Ensure velocity has minimum angle from wall
+            ensureMinAngleFromWall(vx, vy, wallType) {
+                const speed = Math.sqrt(vx * vx + vy * vy);
+                const minAngleRad = this.config.minAngleFromWall * (Math.PI / 180);
+                const minComponent = speed * Math.sin(minAngleRad);
+
+                if (wallType === 'horizontal') {
+                    if (Math.abs(vy) < minComponent) {
+                        const signY = vy >= 0 ? 1 : -1;
+                        const signX = vx >= 0 ? 1 : -1;
+                        vy = signY * minComponent;
+                        vx = signX * Math.sqrt(speed * speed - vy * vy);
+                    }
+                } else if (wallType === 'vertical') {
+                    if (Math.abs(vx) < minComponent) {
+                        const signX = vx >= 0 ? 1 : -1;
+                        const signY = vy >= 0 ? 1 : -1;
+                        vx = signX * minComponent;
+                        vy = signY * Math.sqrt(speed * speed - vx * vx);
+                    }
+                }
+
+                return { vx, vy };
+            },
+
+            // Helper: Get random perturbation interval
+            getRandomPerturbationInterval() {
+                return this.config.perturbationIntervalMin +
+                       Math.random() * (this.config.perturbationIntervalMax - this.config.perturbationIntervalMin);
+            },
+
+            // Helper: Get random speed
+            getRandomSpeed() {
+                return this.config.speedMin +
+                       Math.random() * (this.config.speedMax - this.config.speedMin);
+            },
+
+            // Create moving objects - all white attended circles
+            createObjects() {
+                this.objects = [];
+
+                for (let i = 0; i < this.config.numObjects; i++) {
+                    const margin = this.config.objectSize;
+                    const speed = this.getRandomSpeed();
+                    const xDir = Math.random() < 0.5 ? 1 : -1;
+                    const yDir = Math.random() < 0.5 ? 1 : -1;
+                    const initialInterval = this.getRandomPerturbationInterval();
+
+                    this.objects.push({
+                        x: Math.random() * (this.config.canvasWidth - margin * 2) + margin,
+                        y: Math.random() * (this.config.canvasHeight - margin * 2) + margin,
+                        vx: speed * xDir,
+                        vy: speed * yDir,
+                        color: this.state.attendedColor,
+                        size: this.config.objectSize,
+                        bounces: 0,
+                        timeSincePerturbation: Math.random() * initialInterval,
+                        nextPerturbationAt: initialInterval
+                    });
+                }
+            },
+
+            // ============================================================
+            // UNEXPECTED OBJECT - COLOR TRANSITIONING CROSS
+            // The cross starts as one color (black or white, randomized)
+            // and linearly transitions to the opposite color as it moves
+            // from one edge of the canvas to the other.
+            // ============================================================
+            addUnexpectedObject() {
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+
+                // For critical trial, randomly choose direction
+                if (trialType === 'critical') {
+                    this.data.unexpectedObjectShape = 'cross';
+                    this.data.unexpectedObjectDirection = Math.random() < 0.5 ? 'LeftToRight' : 'RightToLeft';
+                }
+                // For divided trial, reuse same direction as critical
+
+                const direction = this.data.unexpectedObjectDirection === 'LeftToRight' ? 1 : -1;
+                const startX = direction === 1 ? -30 : this.config.canvasWidth + 30;
+                const speed = this.config.unexpectedObjectSpeed;
+
+                // Calculate the total horizontal distance the UEO will travel
+                // From start (off-screen) to end (off-screen on other side)
+                const totalDistance = this.config.canvasWidth + 60; // -30 to canvasWidth+30
+
+                this.unexpectedObject = {
+                    x: startX,
+                    y: this.config.canvasHeight / 2,
+                    vx: speed * direction,
+                    vy: 0,
+                    startX: startX,            // Remember where it started
+                    totalDistance: totalDistance, // Total distance to traverse
+                    startColorRGB: this.data.unexpectedObjectStartColor === 'black' ? 0 : 255,
+                    endColorRGB: this.data.unexpectedObjectEndColor === 'black' ? 0 : 255,
+                    size: this.config.objectSize,
+                    isUnexpected: true
+                };
+
+                console.log("Unexpected object: color-transitioning cross",
+                           "Start color:", this.data.unexpectedObjectStartColor,
+                           "→ End color:", this.data.unexpectedObjectEndColor,
+                           "Direction:", this.data.unexpectedObjectDirection);
+            },
+
+            // ============================================================
+            // ANIMATION LOOP
+            // ============================================================
+            animate(currentTime) {
+                if (!this.state.isRunning) return;
+
+                // Calculate delta time
+                if (!this.lastFrameTime) {
+                    this.lastFrameTime = currentTime;
+                }
+                const deltaTime = currentTime - this.lastFrameTime;
+                this.lastFrameTime = currentTime;
+
+                const targetFrameTime = 1000 / 60;
+                const timeMultiplier = deltaTime / targetFrameTime;
+
+                // Clear canvas
+                this.ctx.fillStyle = this.config.backgroundColor;
+                this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
+
+                // Update and draw moving distractor circles FIRST (background layer)
+                this.distractors.forEach(d => {
+                    this.updateObject(d, timeMultiplier, deltaTime);
+                    this.drawObject(d);
+                });
+
+                // Draw unexpected object SECOND (middle layer, behind attended circles)
+                if (this.unexpectedObject) {
+                    this.updateUnexpectedObject(timeMultiplier);
+                }
+                if (this.unexpectedObject) {
+                    this.drawColorTransitionCross(this.unexpectedObject);
+                }
+
+                // Update and draw attended circles LAST (top layer)
+                this.objects.forEach(obj => {
+                    this.updateObject(obj, timeMultiplier, deltaTime);
+                    this.drawObject(obj);
+                });
+
+                // Continue animation
+                requestAnimationFrame((time) => this.animate(time));
+            },
+
+            // Update object position with time-based movement
+            updateObject(obj, timeMultiplier, deltaTime) {
+                obj.x += obj.vx * timeMultiplier;
+                obj.y += obj.vy * timeMultiplier;
+
+                const radius = obj.size / 2;
+                let bouncedX = false;
+                let bouncedY = false;
+
+                // Wall collisions with variable bounce angles
+                if (obj.x - radius <= 0 || obj.x + radius >= this.config.canvasWidth) {
+                    obj.vx *= -1;
+                    if (obj.x - radius <= 0) obj.x = radius;
+                    if (obj.x + radius >= this.config.canvasWidth) obj.x = this.config.canvasWidth - radius;
+
+                    const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
+                    const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
+                    obj.vx = rotated.vx;
+                    obj.vy = rotated.vy;
+
+                    const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'vertical');
+                    obj.vx = adjusted.vx;
+                    obj.vy = adjusted.vy;
+
+                    bouncedX = true;
+                    if (!obj.isUnexpected && !obj.isDistractor) obj.bounces++;
+                }
+
+                if (obj.y - radius <= 0 || obj.y + radius >= this.config.canvasHeight) {
+                    obj.vy *= -1;
+                    if (obj.y - radius <= 0) obj.y = radius;
+                    if (obj.y + radius >= this.config.canvasHeight) obj.y = this.config.canvasHeight - radius;
+
+                    if (!bouncedX) {
+                        const angleVariation = this.getRandomAngle(this.config.bounceAngleVariation);
+                        const rotated = this.rotateVelocity(obj.vx, obj.vy, angleVariation);
+                        obj.vx = rotated.vx;
+                        obj.vy = rotated.vy;
+                    }
+
+                    const adjusted = this.ensureMinAngleFromWall(obj.vx, obj.vy, 'horizontal');
+                    obj.vx = adjusted.vx;
+                    obj.vy = adjusted.vy;
+
+                    bouncedY = true;
+                    if (!obj.isUnexpected && !obj.isDistractor) obj.bounces++;
+                }
+
+                // Random perturbation
+                if (!bouncedX && !bouncedY) {
+                    obj.timeSincePerturbation += deltaTime;
+                    if (obj.timeSincePerturbation >= obj.nextPerturbationAt) {
+                        const perturbation = this.getRandomAngle(this.config.perturbationAmount);
+                        const rotated = this.rotateVelocity(obj.vx, obj.vy, perturbation);
+                        const currentSpeed = Math.sqrt(rotated.vx * rotated.vx + rotated.vy * rotated.vy);
+                        const newSpeed = this.getRandomSpeed();
+                        const speedRatio = newSpeed / currentSpeed;
+                        obj.vx = rotated.vx * speedRatio;
+                        obj.vy = rotated.vy * speedRatio;
+                        obj.timeSincePerturbation = 0;
+                        obj.nextPerturbationAt = this.getRandomPerturbationInterval();
+                    }
+                }
+            },
+
+            // Update unexpected object with time-based movement
+            updateUnexpectedObject(timeMultiplier) {
+                if (this.unexpectedObject) {
+                    this.unexpectedObject.x += this.unexpectedObject.vx * timeMultiplier;
+
+                    // Remove when off screen
+                    if (this.unexpectedObject.vx > 0 && this.unexpectedObject.x > this.config.canvasWidth + 30) {
+                        this.unexpectedObject = null;
+                    } else if (this.unexpectedObject.vx < 0 && this.unexpectedObject.x < -30) {
+                        this.unexpectedObject = null;
+                    }
+                }
+            },
+
+            // Draw circle object
+            drawObject(obj) {
+                this.ctx.fillStyle = obj.color;
+                this.ctx.beginPath();
+                this.ctx.arc(obj.x, obj.y, obj.size / 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            },
+
+            // ============================================================
+            // DRAW COLOR-TRANSITIONING CROSS
+            // Computes the current color based on how far the cross has
+            // traveled across the screen (0% = start color, 100% = end color).
+            // ============================================================
+            drawColorTransitionCross(obj) {
+                // Calculate progress: how far has the UEO traveled?
+                // progress goes from 0.0 (at start edge) to 1.0 (at far edge)
+                const distanceTraveled = Math.abs(obj.x - obj.startX);
+                const progress = Math.min(1.0, distanceTraveled / obj.totalDistance);
+
+                // Linearly interpolate between start and end color
+                const currentGray = Math.round(
+                    obj.startColorRGB + (obj.endColorRGB - obj.startColorRGB) * progress
+                );
+
+                const colorStr = `rgb(${currentGray}, ${currentGray}, ${currentGray})`;
+
+                this.ctx.save();
+                this.ctx.beginPath();
+                this.ctx.strokeStyle = colorStr;
+                this.ctx.lineWidth = obj.size / 4;
+                // Horizontal line
+                this.ctx.moveTo(obj.x - obj.size / 2, obj.y);
+                this.ctx.lineTo(obj.x + obj.size / 2, obj.y);
+                // Vertical line
+                this.ctx.moveTo(obj.x, obj.y - obj.size / 2);
+                this.ctx.lineTo(obj.x, obj.y + obj.size / 2);
+                this.ctx.stroke();
+                this.ctx.restore();
+            },
+
+            // End trial
+            endTrial() {
+                this.state.isRunning = false;
+                this.unexpectedObject = null;
+
+                let totalBounces = 0;
+                this.objects.forEach(obj => {
+                    totalBounces += obj.bounces;
+                });
+
+                this.data.trials.bounces.push(totalBounces);
+                console.log("Trial", this.state.currentTrial + 1, "- Actual bounces:", totalBounces);
+
+                this.showResponseInput();
+            },
+
+            // Show response input
+            showResponseInput() {
+                this.showScreen('responseScreen');
+                document.getElementById('responsePrompt').textContent =
+                    `In the box below, please enter the total number of times the white circles bounced off the edges of the rectangle.`;
+                document.getElementById('countInput').value = '';
+                document.getElementById('countInput').focus();
+            },
+
+            // Submit counting response
+            submitResponse() {
+                const count = parseInt(document.getElementById('countInput').value) || 0;
+                this.data.trials.counts.push(count);
+
+                const trialIndex = this.data.trials.counts.length - 1;
+                const actual = this.data.trials.bounces[trialIndex];
+                const percentError = Math.abs(count - actual) / actual * 100;
+                const accuracy = Math.max(0, Math.min(100, 100 - percentError));
+                this.data.trials.accuracy.push(parseFloat(accuracy.toFixed(2)));
+
+                console.log("Count submitted:", count, "Actual:", actual, "Accuracy:", accuracy.toFixed(2) + "%");
+
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+
+                if (trialType === 'critical' || trialType === 'divided') {
+                    this.showNoticeQuestion();
+                } else {
+                    this.nextTrial();
+                }
+            },
+
+            // Show notice question
+            showNoticeQuestion() {
+                this.showScreen('yesNoScreen');
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+
+                if (trialType === 'critical') {
+                    document.getElementById('yesNoQuestion').textContent =
+                        "Did you notice anything extra during the last counting trial that wasn't there in the previous trials?";
+                } else {
+                    document.getElementById('yesNoQuestion').textContent =
+                        "Did you notice an extra object on that trial?";
+                }
+            },
+
+            // Submit yes/no response
+            submitYesNo(answer) {
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                const responseIndex = trialType === 'critical' ? 0 : 1;
+                this.data.responses.noticed[responseIndex] = answer;
+
+                console.log("Noticed:", answer, "Trial type:", trialType);
+
+                this.showShapeSelection();
+            },
+
+            // Show shape selection
+            showShapeSelection() {
+                this.showScreen('shapeScreen');
+                document.querySelectorAll('#shapeSection .shape-choice').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                this.selectedShape = null;
+            },
+
+            // Select a shape
+            selectShape(shape) {
+                document.querySelectorAll('#shapeSection .shape-choice').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                event.currentTarget.classList.add('selected');
+                this.selectedShape = shape;
+            },
+
+            // Submit shape choice → then go to color slider
+            submitShapeChoice() {
+                if (!this.selectedShape) {
+                    alert("Please select a shape");
+                    return;
+                }
+
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                const responseIndex = trialType === 'critical' ? 0 : 1;
+                this.data.responses.shapeChoice[responseIndex] = this.selectedShape;
+
+                console.log("Shape choice:", this.selectedShape);
+
+                // NEW: Go to color slider instead of nextTrial
+                this.showColorSlider();
+            },
+
+            // ============================================================
+            // COLOR SLIDER QUESTION
+            // ============================================================
+            showColorSlider() {
+                this.showScreen('colorSliderScreen');
+
+                // Reset slider
+                this.colorSliderSelectedValue = null;
+                const thumb = document.getElementById('colorSliderThumb');
+                thumb.style.left = '50%';
+
+                // Draw the selected shape in the preview SVG with a neutral gray
+                const svg = document.getElementById('colorPreviewSVG');
+                const defaultColor = '#808080';
+                let shapeHTML = '';
+
+                switch (this.selectedShape) {
+                    case 'cross':
+                        shapeHTML = `<line x1="0" y1="50" x2="100" y2="50" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="50" y1="0" x2="50" y2="100" style="stroke:${defaultColor}; stroke-width:10"/>`;
+                        break;
+                    case 'Z':
+                        shapeHTML = `<line x1="10" y1="10" x2="90" y2="10" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="87" y1="9" x2="13.3" y2="90" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="10" y1="90" x2="90" y2="90" style="stroke:${defaultColor}; stroke-width:10"/>`;
+                        break;
+                    case 'L':
+                        shapeHTML = `<line x1="25" y1="10" x2="25" y2="90" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="20" y1="90" x2="75" y2="90" style="stroke:${defaultColor}; stroke-width:10"/>`;
+                        break;
+                    case 'T':
+                        shapeHTML = `<line x1="10" y1="20" x2="90" y2="20" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="50" y1="20" x2="50" y2="100" style="stroke:${defaultColor}; stroke-width:10"/>`;
+                        break;
+                    default:
+                        // Fallback: cross
+                        shapeHTML = `<line x1="0" y1="50" x2="100" y2="50" style="stroke:${defaultColor}; stroke-width:10"/>
+                                     <line x1="50" y1="0" x2="50" y2="100" style="stroke:${defaultColor}; stroke-width:10"/>`;
+                }
+                svg.innerHTML = shapeHTML;
+            },
+
+            // Submit color slider response
+            submitColorSlider() {
+                if (this.colorSliderSelectedValue === null) {
+                    alert("Please select a color by clicking or dragging on the gradient bar.");
+                    return;
+                }
+
+                const trialType = this.state.trialSequence[this.state.currentTrial];
+                const responseIndex = trialType === 'critical' ? 0 : 1;
+                this.data.responses.colorSlider[responseIndex] = this.colorSliderSelectedValue;
+
+                console.log("Color slider value:", this.colorSliderSelectedValue,
+                           "(0=black, 255=white)", "Trial type:", trialType);
+
+                this.nextTrial();
+            },
+
+            // Move to next trial
+            nextTrial() {
+                this.state.currentTrial++;
+
+                if (this.state.currentTrial < this.state.trialSequence.length) {
+                    this.showInstructions();
+                } else {
+                    this.showPlaybackQuestion();
+                }
+            },
+
+            // Show playback question
+            showPlaybackQuestion() {
+                const practiceAcc1 = this.data.trials.accuracy[0] || 0;
+                const practiceAcc2 = this.data.trials.accuracy[1] || 0;
+                this.data.practiceAccuracyAvg = parseFloat(((practiceAcc1 + practiceAcc2) / 2).toFixed(2));
+
+                this.showScreen('playbackScreen');
+                document.getElementById('playbackQuestion').textContent =
+                    "Did the animation play smoothly, with no obvious lagging or freezing?";
+            },
+
+            // Submit playback response
+            submitPlayback(answer) {
+                this.data.runSmoothly = answer;
+                console.log("Run smoothly:", answer);
+
+                if (answer === 'No') {
+                    this.showGlitchesScreen();
+                } else {
+                    this.showFinalScreen();
+                }
+            },
+
+            // Show glitches description screen
+            showGlitchesScreen() {
+                this.showScreen('glitchesScreen');
+                document.getElementById('glitchesInput').value = '';
+            },
+
+            // Submit glitches description
+            submitGlitches() {
+                this.data.glitchesDescription = document.getElementById('glitchesInput').value;
+                console.log("Glitches description:", this.data.glitchesDescription);
+                this.showFinalScreen();
+            },
+
+            // Show final screen
+            showFinalScreen() {
+                this.showScreen('finalScreen');
+            },
+
+            // ============================================================
+            // SUBMIT ALL DATA
+            // ============================================================
+            submitData() {
+                // Record end time
+                this.timing.endTime = new Date();
+                this.data.endTime = this.formatDate(this.timing.endTime);
+                this.data.duration = Math.round((this.timing.endTime - this.timing.startTime) / 1000);
+
+                // Fill in form fields
+                const form = document.getElementById('task_data');
+                form.study_name.value = this.data.studyName;
+                form.subject_code.value = this.data.subjectCode;
+                form.start_time.value = this.data.startTime;
+                form.end_time.value = this.data.endTime;
+                form.duration.value = this.data.duration;
+                form.background_color.value = this.config.backgroundColor;
+                form.attended_color.value = this.state.attendedColor;
+                form.bounce_angle_variation.value = this.config.bounceAngleVariation;
+                form.min_angle_from_wall.value = this.config.minAngleFromWall;
+                form.perturbation_interval_min.value = this.config.perturbationIntervalMin;
+                form.perturbation_interval_max.value = this.config.perturbationIntervalMax;
+                form.perturbation_amount.value = this.config.perturbationAmount;
+                form.speed_min.value = this.config.speedMin;
+                form.speed_max.value = this.config.speedMax;
+                form.unexpected_object_speed.value = this.config.unexpectedObjectSpeed;
+                form.unexpected_object_start_color.value = this.data.unexpectedObjectStartColor || '';
+                form.unexpected_object_end_color.value = this.data.unexpectedObjectEndColor || '';
+                form.unexpected_object_shape.value = this.data.unexpectedObjectShape || '';
+                form.unexpected_object_direction.value = this.data.unexpectedObjectDirection || '';
+
+                // Distractor info
+                form.num_distractors.value = this.config.numDistractors;
+                form.distractor_color.value = this.config.distractorColor;
+                form.distractor_positions.value = JSON.stringify(
+                    this.distractors.map(d => ({ x: Math.round(d.startX), y: Math.round(d.startY) }))
+                );
+                form.distractor_motion.value = 'moving';
+
+                // Trial 1 (Practice 1)
+                form.trial1_bounces.value = this.data.trials.bounces[0] || '';
+                form.trial1_count.value = this.data.trials.counts[0] || '';
+                form.trial1_accuracy.value = this.data.trials.accuracy[0] || '';
+
+                // Trial 2 (Practice 2)
+                form.trial2_bounces.value = this.data.trials.bounces[1] || '';
+                form.trial2_count.value = this.data.trials.counts[1] || '';
+                form.trial2_accuracy.value = this.data.trials.accuracy[1] || '';
+
+                // Trial 3 (Critical)
+                form.trial3_bounces.value = this.data.trials.bounces[2] || '';
+                form.trial3_count.value = this.data.trials.counts[2] || '';
+                form.trial3_accuracy.value = this.data.trials.accuracy[2] || '';
+                form.trial3_noticed.value = this.data.responses.noticed[0] || '';
+                form.trial3_shape_choice.value = this.data.responses.shapeChoice[0] || '';
+                form.trial3_color_slider.value = this.data.responses.colorSlider[0] !== null ? this.data.responses.colorSlider[0] : '';
+
+                // Trial 4 (Divided)
+                form.trial4_bounces.value = this.data.trials.bounces[3] || '';
+                form.trial4_count.value = this.data.trials.counts[3] || '';
+                form.trial4_accuracy.value = this.data.trials.accuracy[3] || '';
+                form.trial4_noticed.value = this.data.responses.noticed[1] || '';
+                form.trial4_shape_choice.value = this.data.responses.shapeChoice[1] || '';
+                form.trial4_color_slider.value = this.data.responses.colorSlider[1] !== null ? this.data.responses.colorSlider[1] : '';
+
+                // Accuracy summary
+                form.practice_accuracy_avg.value = this.data.practiceAccuracyAvg || '';
+
+                // Playback
+                form.run_smoothly.value = this.data.runSmoothly || '';
+                form.glitches_description.value = this.data.glitchesDescription || '';
+
+                // Log all data for debugging
+                console.log("=== FINAL DATA ===");
+                console.log("Study name:", this.data.studyName);
+                console.log("Subject:", this.data.subjectCode);
+                console.log("Duration:", this.data.duration, "seconds");
+                console.log("Attended color:", this.state.attendedColor);
+                console.log("UEO start color:", this.data.unexpectedObjectStartColor);
+                console.log("UEO end color:", this.data.unexpectedObjectEndColor);
+                console.log("UEO direction:", this.data.unexpectedObjectDirection);
+                console.log("Bounces:", this.data.trials.bounces);
+                console.log("Counts:", this.data.trials.counts);
+                console.log("Accuracy:", this.data.trials.accuracy);
+                console.log("Practice Avg:", this.data.practiceAccuracyAvg);
+                console.log("Noticed:", this.data.responses.noticed);
+                console.log("Shape Choice:", this.data.responses.shapeChoice);
+                console.log("Color Slider:", this.data.responses.colorSlider);
+                console.log("==================");
+
+                // Create data object for submission
+                const formData = new FormData(form);
+                const dataObject = {};
+                formData.forEach((value, key) => {
+                    dataObject[key] = value;
+                });
+
+                const json = JSON.stringify(dataObject);
+                console.log("JSON being sent:", json);
+
+                // Send data via XMLHttpRequest
+                const xhr = new XMLHttpRequest();
+                xhr.open("POST", "data.php", true);
+                xhr.setRequestHeader("Content-Type", "application/json");
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        console.log("Server response:", xhr.responseText);
+                        if (xhr.status === 200) {
+                            window.location.href = 'https://app.prolific.com/submissions/complete?cc=C1QBLCRQ';
+                            console.log("Data submitted successfully.");
+                        } else {
+                            console.error("Error submitting data");
+                        }
+                    }
+                };
+                xhr.send(json);
+            }
+        };
+
+        // ============================================================
+        // INITIALIZATION
+        // ============================================================
+        window.onload = function() {
+            console.log("Page loaded - Color Transition UEO Experiment ready!");
+            experiment.init();
+            experiment.showInstructions();
+        };
+    </script>
+</body>
+</html>

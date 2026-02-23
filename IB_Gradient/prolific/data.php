@@ -42,10 +42,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $stmt = $conn->prepare("INSERT INTO ProlificIDs (prolific_id, subject_code, study_id, session_id) VALUES (?, ?, ?, ?)");
             $stmt->execute([$prolific_id, $subject_code, $study_id, $session_id]);
 
-//             // Insert into metaDataCog table
-//             $stmt = $conn->prepare("INSERT INTO metaDataCog (subject_code, start_time, browser) VALUES (?, ?, ?)");
-//             $stmt->execute([$subject_code, $start_time, $browser]);
-
             // Commit transaction
             $conn->commit();
 
